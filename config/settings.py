@@ -22,13 +22,13 @@ ALLOWED_HOSTS = ["*"]
 # Application definition
 
 INSTALLED_APPS = [
+    "corsheaders",
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    "corsheaders",
 
     # packages
     'rest_framework',
@@ -80,9 +80,15 @@ MIDDLEWARE = [
 # ]
 
 
+# 🔥 CORS (HAMMASIGA RUXSAT – TEST UCHUN)
 CORS_ALLOW_ALL_ORIGINS = True
+CORS_ALLOW_CREDENTIALS = True
 
-CORS_ALLOW_CREDENTIALS = False
+# 🔥 CSRF (PATH YO‘Q, FAQAT DOMAIN)
+CSRF_TRUSTED_ORIGINS = [
+    "https://qr-mahalla.up.railway.app",
+    "https://*.railway.app",
+]
 
 
 STATICFILES_FINDERS = [

@@ -28,6 +28,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    "corsheaders",
 
     # packages
     'rest_framework',
@@ -42,7 +43,6 @@ INSTALLED_APPS = [
     # "apps.qrcodes",
     "apps.scans",
     "apps.qrcodes.apps.QrcodesConfig",
-    "corsheaders",
 ]
 
 AUTH_USER_MODEL = 'users.User'
@@ -72,12 +72,17 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-CORS_ALLOW_ALL_ORIGINS = True
-CORS_ALLOW_CREDENTIALS = True
+# CORS_ALLOW_ALL_ORIGINS = True
+# CORS_ALLOW_CREDENTIALS = True
 
-CSRF_TRUSTED_ORIGINS = [
-    "https://qr-mahalla.up.railway.app",
-]
+# CSRF_TRUSTED_ORIGINS = [
+#     "https://qr-mahalla.up.railway.app",
+# ]
+
+
+CORS_ALLOW_ALL_ORIGINS = True
+
+CORS_ALLOW_CREDENTIALS = False
 
 
 STATICFILES_FINDERS = [

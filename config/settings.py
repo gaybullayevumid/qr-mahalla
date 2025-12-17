@@ -54,6 +54,22 @@ AUTH_USER_MODEL = 'users.User'
 # QR_SECRET_KEY = Fernet.generate_key()
 
 
+SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+
+USE_X_FORWARDED_HOST = True
+
+SWAGGER_SETTINGS = {
+    "SECURITY_DEFINITIONS": {
+        "Bearer": {
+            "type": "apiKey",
+            "name": "Authorization",
+            "in": "header",
+        }
+    },
+    "USE_SESSION_AUTH": False,
+}
+
+
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
         'rest_framework_simplejwt.authentication.JWTAuthentication',
@@ -72,23 +88,9 @@ MIDDLEWARE = [
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
-# CORS_ALLOW_ALL_ORIGINS = True
-# CORS_ALLOW_CREDENTIALS = True
-
-# CSRF_TRUSTED_ORIGINS = [
-#     "https://qr-mahalla.up.railway.app",
-# ]
-
-
-# 🔥 CORS (HAMMASIGA RUXSAT – TEST UCHUN)
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
 
-# 🔥 CSRF (PATH YO‘Q, FAQAT DOMAIN)
-CSRF_TRUSTED_ORIGINS = [
-    "https://qr-mahalla.up.railway.app",
-    "https://*.railway.app",
-]
 
 
 STATICFILES_FINDERS = [

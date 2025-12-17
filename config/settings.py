@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     # "apps.qrcodes",
     "apps.scans",
     "apps.qrcodes.apps.QrcodesConfig",
+    "corsheaders",
 ]
 
 AUTH_USER_MODEL = 'users.User'
@@ -57,6 +58,7 @@ REST_FRAMEWORK = {
 }
 
 MIDDLEWARE = [
+    "corsheaders.middleware.CorsMiddleware",
     'django.middleware.security.SecurityMiddleware',
     'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
@@ -66,6 +68,16 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
+
+# CORS_ALLOW_CREDENTIALS = True
+
+# CORS_ALLOWED_ORIGINS = [
+#     "https://frontend-domain.com",
+#     "https://www.frontend-domain.com",
+# ]
+
+
+CORS_ALLOW_ALL_ORIGINS = True
 
 STATICFILES_FINDERS = [
     'django.contrib.staticfiles.finders.FileSystemFinder',

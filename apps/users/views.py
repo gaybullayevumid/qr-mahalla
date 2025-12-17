@@ -23,10 +23,7 @@ class RegisterAPIView(APIView):
 
         send_sms(phone, code)
 
-        return Response(
-            {"message": "SMS kod yuborildi"},
-            status=status.HTTP_200_OK
-        )
+        return Response({"message": "SMS kod yuborildi"}, status=status.HTTP_200_OK)
 
 
 class VerifyOTPAPIView(APIView):
@@ -37,16 +34,12 @@ class VerifyOTPAPIView(APIView):
         phone = serializer.validated_data["phone"]
         code = serializer.validated_data["code"]
 
-        otp = PhoneOTP.objects.filter(
-            phone=phone,
-            code=code,
-            is_used=False
-        ).last()
+        otp = PhoneOTP.objects.filter(phone=phone, code=code, is_used=False).last()
 
         if not otp or otp.is_expired():
             return Response(
                 {"error": "Kod noto‘g‘ri yoki eskirgan"},
-                status=status.HTTP_400_BAD_REQUEST
+                status=status.HTTP_400_BAD_REQUEST,
             )
 
         otp.is_used = True
@@ -58,8 +51,10 @@ class VerifyOTPAPIView(APIView):
 
         refresh = RefreshToken.for_user(user)
 
-        return Response({
-            "access": str(refresh.access_token),
-            "refresh": str(refresh),
-            "role": user.role
-        })
+        return Response(
+            {
+                "access": str(refresh.access_token),
+                "refresh": str(refresh),
+                "role": user.role,
+            }
+        )

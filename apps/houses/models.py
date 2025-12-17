@@ -5,22 +5,12 @@ from ..regions.models import Mahalla
 
 
 class House(models.Model):
-    id = models.UUIDField(
-        primary_key=True,
-        default=uuid.uuid4,
-        editable=False
-    )
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
-    owner = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        related_name="houses"
-    )
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="houses")
 
     mahalla = models.ForeignKey(
-        Mahalla,
-        on_delete=models.CASCADE,
-        related_name="houses"
+        Mahalla, on_delete=models.CASCADE, related_name="houses"
     )
 
     address = models.CharField(max_length=255)

@@ -2,11 +2,7 @@ from rest_framework.viewsets import ModelViewSet
 from rest_framework.permissions import IsAuthenticated
 
 from .models import Region, District, Mahalla
-from .serializers import (
-    RegionSerializer,
-    DistrictSerializer,
-    MahallaSerializer
-)
+from .serializers import RegionSerializer, DistrictSerializer, MahallaSerializer
 from .permissions import IsSuperAdmin
 
 

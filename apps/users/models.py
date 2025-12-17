@@ -16,7 +16,6 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     phone = models.CharField(max_length=15, unique=True)
 
-    # 🔹 SHAXSIY MAʼLUMOTLAR (QR scan uchun kerak)
     first_name = models.CharField(max_length=100, blank=True)
     last_name = models.CharField(max_length=100, blank=True)
     passport_id = models.CharField(max_length=20, blank=True)

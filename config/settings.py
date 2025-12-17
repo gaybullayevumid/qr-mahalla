@@ -33,10 +33,17 @@ INSTALLED_APPS = [
 
     # local apps
     'apps.users',
-    # 'apps.qrcodes'
+    'apps.qrcodes'
 ]
 
 AUTH_USER_MODEL = 'users.User'
+
+BASE_URL = 'http://127.0.0.1:8000' 
+
+from cryptography.fernet import Fernet
+
+QR_SECRET_KEY = Fernet.generate_key()
+
 
 REST_FRAMEWORK = {
     'DEFAULT_AUTHENTICATION_CLASSES': (
@@ -120,3 +127,5 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/6.0/howto/static-files/
 
 STATIC_URL = 'static/'
+MEDIA_URL = '/media/'
+MEDIA_ROOT = BASE_DIR / 'media'

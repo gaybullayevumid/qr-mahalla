@@ -1,37 +1,71 @@
-import string
-import random
-from django.db import models
-from ..users.models import User
+import uuid
+import qrcode
+from io import BytesIO
 
-# 16 belgili noyob ID generatsiyasi
-def generate_16_char_id():
-    chars = string.ascii_letters + string.digits  # A-Z, a-z, 0-9
-    return ''.join(random.choices(chars, k=16))
+from django.db import models
+from django.core.files import File
+
+from apps.users.models import User
+from .utils import encrypt_owner_data
+
 
 class QRCode(models.Model):
-    OBJECT_TYPES = (
-        ('house', 'Uy'),
-        ('car', 'Mashina'),
-        ('other', 'Boshqa'),
-    )
-
-    id = models.CharField(
+    id = models.UUIDField(
         primary_key=True,
-        max_length=16,
-        default=generate_16_char_id,
+        default=uuid.uuid4,
         editable=False
     )
-    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name='qrcodes')
-    object_type = models.CharField(max_length=20, choices=OBJECT_TYPES)
+
+    owner = models.OneToOneField(
+        User,
+        on_delete=models.CASCADE,
+        related_name='qr_code'
+    )
+
+    image = models.ImageField(
+        upload_to='qr_codes/',
+        blank=True,
+        null=True
+    )
+
+    is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
-        return self.id
+        return str(self.id)
 
-class ScanLog(models.Model):
-    qr = models.ForeignKey(QRCode, on_delete=models.CASCADE)
-    scanned_by = models.ForeignKey(
-        User, null=True, blank=True, on_delete=models.SET_NULL
-    )
-    scanned_at = models.DateTimeField(auto_now_add=True)
-    ip_address = models.GenericIPAddressField(null=True, blank=True)
+    def generate_qr_image(self):
+        """
+        QR ichiga uy egasining TO‘LIQ ma’lumotlari
+        SHIFRLANGAN holatda joylanadi
+        """
+
+        owner = self.owner
+
+        owner_data = {
+            "owner_id": owner.id,
+            "first_name": owner.first_name,
+            "last_name": owner.last_name,
+            "father_name": owner.father_name,
+            "phone": owner.phone,
+            "address": owner.address,
+            "passport_id": owner.passport_id,
+        }
+
+        encrypted_payload = encrypt_owner_data(owner_data)
+
+        qr = qrcode.make(encrypted_payload)
+        buffer = BytesIO()
+        qr.save(buffer, format='PNG')
+
+        file_name = f"qr_{self.id}.png"
+        self.image.save(file_name, File(buffer), save=False)
+
+    def save(self, *args, **kwargs):
+        is_new = self._state.adding
+        super().save(*args, **kwargs)
+
+        # faqat yangi yaratilganda QR generatsiya qilinadi
+        if is_new and not self.image:
+            self.generate_qr_image()
+            super().save(update_fields=['image'])

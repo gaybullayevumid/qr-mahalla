@@ -13,7 +13,7 @@ SECRET_KEY = 'django-insecure-zsp+dt0hqc+ut75evqkg(ch%7xtsh&5jkxa)kge8c9&^mkz15e
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ["qr-mahalla.up.railway.app", "127.0.0.1"]
+ALLOWED_HOSTS = []
 
 
 # Application definition
@@ -34,16 +34,20 @@ INSTALLED_APPS = [
 
     # local apps
     'apps.users',
-    
+    "apps.regions",
+    "apps.houses",
+    # "apps.qrcodes",
+    "apps.scans",
+    "apps.qrcodes.apps.QrcodesConfig",
 ]
 
 AUTH_USER_MODEL = 'users.User'
 
-BASE_URL = 'http://127.0.0.1:8000' 
+# BASE_URL = 'http://127.0.0.1:8000' 
 
-from cryptography.fernet import Fernet
+# from cryptography.fernet import Fernet
 
-QR_SECRET_KEY = Fernet.generate_key()
+# QR_SECRET_KEY = Fernet.generate_key()
 
 
 REST_FRAMEWORK = {

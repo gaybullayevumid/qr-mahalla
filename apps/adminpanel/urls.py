@@ -3,7 +3,7 @@ from .views import (
     AdminUserListView,
     AdminUserRoleUpdateView,
     AdminQRCodeListView,
-    AdminScanLogListView
+    AdminScanLogListView,
 )
 
 urlpatterns = [

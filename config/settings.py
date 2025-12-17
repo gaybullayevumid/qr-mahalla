@@ -33,7 +33,11 @@ INSTALLED_APPS = [
 
     # local apps
     'apps.users',
-    'apps.qrcodes'
+    'apps.qrcodes',
+    'apps.regions',
+    'apps.owners',
+    'apps.adminpanel',
+    'apps.scans',
 ]
 
 AUTH_USER_MODEL = 'users.User'

@@ -29,15 +29,12 @@ INSTALLED_APPS = [
     # packages
     'rest_framework',
     'rest_framework.authtoken',
+    "rest_framework_simplejwt",
     'drf_yasg',
 
     # local apps
     'apps.users',
-    'apps.qrcodes',
-    'apps.regions',
-    'apps.owners',
-    'apps.adminpanel',
-    'apps.scans',
+    
 ]
 
 AUTH_USER_MODEL = 'users.User'

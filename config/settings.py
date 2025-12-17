@@ -15,12 +15,9 @@ DEBUG = True
 
 # ALLOWED_HOSTS = ["qr-mahalla.up.railway.app", "127.0.0.1"]
 
-ALLOWED_HOSTS = [
-    "localhost",
-    "127.0.0.1",
-    ".railway.app",
-]
+ALLOWED_HOSTS = ["*"]
 
+# https://qrmahalla.vercel.app/
 
 # Application definition
 
@@ -77,6 +74,10 @@ MIDDLEWARE = [
 
 CORS_ALLOW_ALL_ORIGINS = True
 CORS_ALLOW_CREDENTIALS = True
+
+CSRF_TRUSTED_ORIGINS = [
+    "https://qr-mahalla.up.railway.app",
+]
 
 
 STATICFILES_FINDERS = [

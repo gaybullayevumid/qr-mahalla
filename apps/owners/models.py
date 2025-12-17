@@ -5,9 +5,7 @@ from ..regions.models import Mahalla
 
 class OwnerProfile(models.Model):
     user = models.OneToOneField(
-        User,
-        on_delete=models.CASCADE,
-        related_name="owner_profile"
+        User, on_delete=models.CASCADE, related_name="owner_profile"
     )
 
     first_name = models.CharField(max_length=100)
@@ -16,14 +14,9 @@ class OwnerProfile(models.Model):
 
     # Manzil
     mahalla = models.ForeignKey(
-        Mahalla,
-        on_delete=models.PROTECT,
-        related_name="owners"
+        Mahalla, on_delete=models.PROTECT, related_name="owners"
     )
-    address = models.CharField(
-        max_length=255,
-        help_text="Ko‘cha, uy raqami"
-    )
+    address = models.CharField(max_length=255, help_text="Ko‘cha, uy raqami")
 
     created_at = models.DateTimeField(auto_now_add=True)
 

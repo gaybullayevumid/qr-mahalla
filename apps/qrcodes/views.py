@@ -16,7 +16,7 @@ class QRScanView(APIView):
     /api/scan/<uuid>/
     """
 
-    authentication_classes = []   # oddiy user uchun ham ochiq
+    authentication_classes = []  # oddiy user uchun ham ochiq
     permission_classes = []
 
     def get(self, request, qr_id):
@@ -27,35 +27,24 @@ class QRScanView(APIView):
         ScanLog.objects.create(
             qr=qr,
             scanned_by=request.user if request.user.is_authenticated else None,
-            ip_address=request.META.get('REMOTE_ADDR'),
-            user_agent=request.META.get('HTTP_USER_AGENT', '')
+            ip_address=request.META.get("REMOTE_ADDR"),
+            user_agent=request.META.get("HTTP_USER_AGENT", ""),
         )
 
         # agar login qilinmagan bo‘lsa
         if not request.user.is_authenticated:
             data = PublicOwnerSerializer(owner).data
-            return Response({
-                "role": "guest",
-                "owner": data
-            })
+            return Response({"role": "guest", "owner": data})
 
         # owner o‘zi
         if request.user == owner:
-            return Response({
-                "message": "Bu QR code sizga tegishli"
-            })
+            return Response({"message": "Bu QR code sizga tegishli"})
 
         # davlat xodimi
-        if request.user.role == 'government':
+        if request.user.role == "government":
             data = GovernmentOwnerSerializer(owner).data
-            return Response({
-                "role": "government",
-                "owner": data
-            })
+            return Response({"role": "government", "owner": data})
 
         # oddiy user
         data = PublicOwnerSerializer(owner).data
-        return Response({
-            "role": "user",
-            "owner": data
-        })
+        return Response({"role": "user", "owner": data})

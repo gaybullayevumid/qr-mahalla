@@ -10,9 +10,7 @@ class Region(models.Model):
 
 class District(models.Model):
     region = models.ForeignKey(
-        Region,
-        on_delete=models.CASCADE,
-        related_name="districts"
+        Region, on_delete=models.CASCADE, related_name="districts"
     )
     name = models.CharField(max_length=100)
 
@@ -22,9 +20,7 @@ class District(models.Model):
 
 class Mahalla(models.Model):
     district = models.ForeignKey(
-        District,
-        on_delete=models.CASCADE,
-        related_name="mahallas"
+        District, on_delete=models.CASCADE, related_name="mahallas"
     )
     name = models.CharField(max_length=150)
 

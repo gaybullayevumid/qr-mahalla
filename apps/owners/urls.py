@@ -2,7 +2,7 @@ from django.urls import path
 from .views import (
     OwnerProfileCreateView,
     OwnerProfileDetailView,
-    OwnerProfileUpdateView
+    OwnerProfileUpdateView,
 )
 
 urlpatterns = [

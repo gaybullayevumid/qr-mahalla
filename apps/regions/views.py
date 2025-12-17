@@ -1,10 +1,6 @@
 from rest_framework.generics import ListAPIView
 from .models import Region, District, Mahalla
-from .serializers import (
-    RegionSerializer,
-    DistrictSerializer,
-    MahallaSerializer
-)
+from .serializers import RegionSerializer, DistrictSerializer, MahallaSerializer
 
 
 # Viloyatlar ro‘yxati

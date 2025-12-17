@@ -4,18 +4,10 @@ from apps.users.models import User
 
 
 class ScanLog(models.Model):
-    qr = models.ForeignKey(
-        QRCode,
-        on_delete=models.CASCADE,
-        related_name="scans"
-    )
+    qr = models.ForeignKey(QRCode, on_delete=models.CASCADE, related_name="scans")
 
     scanned_by = models.ForeignKey(
-        User,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="scan_logs"
+        User, on_delete=models.SET_NULL, null=True, blank=True, related_name="scan_logs"
     )
 
     ip_address = models.GenericIPAddressField()

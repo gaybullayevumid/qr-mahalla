@@ -19,7 +19,7 @@ class UserManager(BaseUserManager):
         user = self.model(phone=phone, **extra_fields)
 
         if password:
-            user.set_password(password)   # ✅ agar parol bo‘lsa
+            user.set_password(password)  # ✅ agar parol bo‘lsa
         else:
             user.set_unusable_password()  # OTP userlar uchun
 
@@ -27,9 +27,9 @@ class UserManager(BaseUserManager):
         return user
 
     def create_superuser(self, phone, password, **extra_fields):
-        extra_fields.setdefault('is_staff', True)
-        extra_fields.setdefault('is_superuser', True)
-        extra_fields.setdefault('is_active', True)
+        extra_fields.setdefault("is_staff", True)
+        extra_fields.setdefault("is_superuser", True)
+        extra_fields.setdefault("is_active", True)
 
         if not password:
             raise ValueError("Superuser must have a password")
@@ -37,20 +37,15 @@ class UserManager(BaseUserManager):
         return self.create_user(phone, password, **extra_fields)
 
 
-
 class User(AbstractBaseUser, PermissionsMixin):
     ROLE_CHOICES = (
-        ('owner', 'Uy egasi'),
-        ('government', 'Davlat xodimi'),
-        ('user', 'Oddiy foydalanuvchi'),
+        ("owner", "Uy egasi"),
+        ("government", "Davlat xodimi"),
+        ("user", "Oddiy foydalanuvchi"),
     )
 
     phone = models.CharField(max_length=20, unique=True)
-    role = models.CharField(
-        max_length=20,
-        choices=ROLE_CHOICES,
-        default='user'
-    )
+    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default="user")
 
     # Uy egasiga tegishli ma’lumotlar
     first_name = models.CharField(max_length=100, blank=True)
@@ -67,7 +62,7 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     date_joined = models.DateTimeField(auto_now_add=True)
 
-    USERNAME_FIELD = 'phone'
+    USERNAME_FIELD = "phone"
     REQUIRED_FIELDS = []
 
     objects = UserManager()
@@ -95,28 +90,16 @@ class OTP(models.Model):
 
 class QRCode(models.Model):
     OBJECT_TYPES = (
-        ('house', 'Uy'),
-        ('car', 'Mashina'),
-        ('other', 'Boshqa'),
+        ("house", "Uy"),
+        ("car", "Mashina"),
+        ("other", "Boshqa"),
     )
 
-    id = models.UUIDField(
-        primary_key=True,
-        default=uuid.uuid4,
-        editable=False
-    )
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
-    owner = models.ForeignKey(
-        User,
-        on_delete=models.CASCADE,
-        related_name='qrcodes'
-    )
+    owner = models.ForeignKey(User, on_delete=models.CASCADE, related_name="qrcodes")
 
-    object_type = models.CharField(
-        max_length=20,
-        choices=OBJECT_TYPES,
-        default='house'
-    )
+    object_type = models.CharField(max_length=20, choices=OBJECT_TYPES, default="house")
 
     created_at = models.DateTimeField(auto_now_add=True)
 
@@ -125,17 +108,10 @@ class QRCode(models.Model):
 
 
 class ScanLog(models.Model):
-    qr = models.ForeignKey(
-        QRCode,
-        on_delete=models.CASCADE,
-        related_name='scans'
-    )
+    qr = models.ForeignKey(QRCode, on_delete=models.CASCADE, related_name="scans")
 
     scanned_by = models.ForeignKey(
-        User,
-        null=True,
-        blank=True,
-        on_delete=models.SET_NULL
+        User, null=True, blank=True, on_delete=models.SET_NULL
     )
 
     ip_address = models.GenericIPAddressField(null=True, blank=True)
@@ -145,5 +121,3 @@ class ScanLog(models.Model):
 
     def __str__(self):
         return f"Scan {self.qr.id} at {self.scanned_at}"
-
-

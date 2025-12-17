@@ -9,7 +9,6 @@ from .serializers import SendOTPSerializer, VerifyOTPSerializer, UserSerializer
 
 
 def send_sms(phone, code):
-    # 🔴 BU YERDA REAL SMS API ULANADI
     print(f"SMS to {phone}: OTP code = {code}")
 
 
@@ -18,17 +17,14 @@ class SendOTPView(APIView):
         serializer = SendOTPSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        phone = serializer.validated_data['phone']
+        phone = serializer.validated_data["phone"]
 
         code = OTP.generate_code()
         OTP.objects.create(phone=phone, code=code)
 
         send_sms(phone, code)
 
-        return Response(
-            {"message": "OTP code sent"},
-            status=status.HTTP_200_OK
-        )
+        return Response({"message": "OTP code sent"}, status=status.HTTP_200_OK)
 
 
 class VerifyOTPView(APIView):
@@ -36,25 +32,21 @@ class VerifyOTPView(APIView):
         serializer = VerifyOTPSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        phone = serializer.validated_data['phone']
-        code = serializer.validated_data['code']
+        phone = serializer.validated_data["phone"]
+        code = serializer.validated_data["code"]
 
         try:
-            otp = OTP.objects.filter(
-                phone=phone,
-                code=code,
-                is_used=False
-            ).latest('created_at')
+            otp = OTP.objects.filter(phone=phone, code=code, is_used=False).latest(
+                "created_at"
+            )
         except OTP.DoesNotExist:
             return Response(
-                {"error": "Invalid OTP"},
-                status=status.HTTP_400_BAD_REQUEST
+                {"error": "Invalid OTP"}, status=status.HTTP_400_BAD_REQUEST
             )
 
         if otp.is_expired():
             return Response(
-                {"error": "OTP expired"},
-                status=status.HTTP_400_BAD_REQUEST
+                {"error": "OTP expired"}, status=status.HTTP_400_BAD_REQUEST
             )
 
         otp.is_used = True
@@ -64,9 +56,11 @@ class VerifyOTPView(APIView):
 
         refresh = RefreshToken.for_user(user)
 
-        return Response({
-            "user": UserSerializer(user).data,
-            "access": str(refresh.access_token),
-            "refresh": str(refresh),
-            "is_new_user": created
-        })
+        return Response(
+            {
+                "user": UserSerializer(user).data,
+                "access": str(refresh.access_token),
+                "refresh": str(refresh),
+                "is_new_user": created,
+            }
+        )

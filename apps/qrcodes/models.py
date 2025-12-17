@@ -10,23 +10,11 @@ from .utils import encrypt_owner_data
 
 
 class QRCode(models.Model):
-    id = models.UUIDField(
-        primary_key=True,
-        default=uuid.uuid4,
-        editable=False
-    )
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
 
-    owner = models.OneToOneField(
-        User,
-        on_delete=models.CASCADE,
-        related_name='qr_code'
-    )
+    owner = models.OneToOneField(User, on_delete=models.CASCADE, related_name="qr_code")
 
-    image = models.ImageField(
-        upload_to='qr_codes/',
-        blank=True,
-        null=True
-    )
+    image = models.ImageField(upload_to="qr_codes/", blank=True, null=True)
 
     is_active = models.BooleanField(default=True)
     created_at = models.DateTimeField(auto_now_add=True)
@@ -56,7 +44,7 @@ class QRCode(models.Model):
 
         qr = qrcode.make(encrypted_payload)
         buffer = BytesIO()
-        qr.save(buffer, format='PNG')
+        qr.save(buffer, format="PNG")
 
         file_name = f"qr_{self.id}.png"
         self.image.save(file_name, File(buffer), save=False)
@@ -68,4 +56,4 @@ class QRCode(models.Model):
         # faqat yangi yaratilganda QR generatsiya qilinadi
         if is_new and not self.image:
             self.generate_qr_image()
-            super().save(update_fields=['image'])
+            super().save(update_fields=["image"])

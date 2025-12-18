@@ -3,9 +3,9 @@ from rest_framework.permissions import BasePermission
 
 class HouseAccessPermission(BasePermission):
     """
-    Super admin → hammasi
-    Mahalla admin → faqat o‘z mahallasi
-    Owner → faqat o‘z uyi
+    Super admin → all houses
+    Neighborhood admin → only own neighborhood
+    Owner → only own house
     """
 
     def has_object_permission(self, request, view, obj):

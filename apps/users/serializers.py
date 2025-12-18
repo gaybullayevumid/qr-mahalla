@@ -20,9 +20,7 @@ class VerifyOTPSerializer(serializers.Serializer):
     code = serializers.CharField(max_length=6, min_length=6)
 
     def validate_code(self, value):
-        # Kod faqat raqamlardan iborat bo'lishi kerak
+        # Code must contain only digits
         if not value.isdigit():
-            raise serializers.ValidationError(
-                "Kod faqat raqamlardan iborat bo'lishi kerak"
-            )
+            raise serializers.ValidationError("Code must contain only digits")
         return value

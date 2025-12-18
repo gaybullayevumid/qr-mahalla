@@ -9,7 +9,7 @@ from django.conf.urls.static import static
 
 schema_view = get_schema_view(
     openapi.Info(
-        title="QR Mahalla API",
+        title="QR Neighborhood API",
         default_version="v1",
         description="API for QR code based neighborhood management system",
     ),

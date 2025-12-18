@@ -114,14 +114,14 @@ class QRCodeCreateAPIView(generics.CreateAPIView):
 
         qr_code = serializer.save()
 
-        # Response uchun to'liq ma'lumot qaytarish
+        # Return full response data
         response_serializer = QRCodeSerializer(qr_code)
         return Response(response_serializer.data, status=status.HTTP_201_CREATED)
 
 
 class QRCodeDetailAPIView(generics.RetrieveAPIView):
     """
-    Bitta QR kod ma'lumotini olish (GET)
+    Get single QR code details (GET)
     """
 
     permission_classes = [IsAuthenticated]

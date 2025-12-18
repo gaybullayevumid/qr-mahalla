@@ -62,7 +62,7 @@ SWAGGER_SETTINGS = {
             "type": "apiKey",
             "name": "Authorization",
             "in": "header",
-            "description": "Telefon raqam. Format: Phone +998901234567",
+            "description": "Phone number. Format: Phone +998901234567",
         },
         "Bearer": {
             "type": "apiKey",

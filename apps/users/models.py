@@ -8,10 +8,10 @@ from .managers import UserManager
 class User(AbstractBaseUser, PermissionsMixin):
     ROLE_CHOICES = (
         ("super_admin", "Super Admin"),
-        ("government", "Davlat xodimi"),
-        ("mahalla_admin", "Mahalla boshlig‘i"),
-        ("owner", "Uy egasi"),
-        ("user", "Oddiy foydalanuvchi"),
+        ("government", "Government Officer"),
+        ("mahalla_admin", "Neighborhood Admin"),
+        ("owner", "House Owner"),
+        ("user", "Regular User"),
     )
 
     phone = models.CharField(max_length=15, unique=True, verbose_name="Phone number")

@@ -50,7 +50,7 @@ class QRCodeCreateSerializer(serializers.ModelSerializer):
         fields = ["house"]
 
     def validate_house(self, value):
-        # Uy uchun allaqachon QR kod borligini tekshirish
+        # Check if QR code already exists for this house
         if QRCode.objects.filter(house=value).exists():
-            raise serializers.ValidationError("Bu uy uchun allaqachon QR kod mavjud")
+            raise serializers.ValidationError("QR code already exists for this house")
         return value

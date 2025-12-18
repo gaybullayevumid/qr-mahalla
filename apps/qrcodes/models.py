@@ -12,12 +12,19 @@ class QRCode(models.Model):
     id = models.CharField(max_length=16, primary_key=True, editable=False)
 
     house = models.OneToOneField(
-        House, on_delete=models.CASCADE, related_name="qr_code"
+        House, on_delete=models.CASCADE, related_name="qr_code", verbose_name="Uy"
     )
 
-    image = models.ImageField(upload_to="qr_codes/", blank=True, null=True)
+    image = models.ImageField(
+        upload_to="qr_codes/", blank=True, null=True, verbose_name="QR kod rasmi"
+    )
 
-    created_at = models.DateTimeField(auto_now_add=True)
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Yaratilgan sana")
+
+    class Meta:
+        verbose_name = "QR kod"
+        verbose_name_plural = "QR kodlar"
+        ordering = ["-created_at"]
 
     def save(self, *args, **kwargs):
         if not self.id:

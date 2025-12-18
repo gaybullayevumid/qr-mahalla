@@ -9,6 +9,7 @@ class HouseSerializer(serializers.ModelSerializer):
             "id",
             "owner",
             "mahalla",
+            "house_number",
             "address",
             "created_at",
         )

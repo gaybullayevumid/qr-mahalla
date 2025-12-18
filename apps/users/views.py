@@ -2,6 +2,7 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated, AllowAny
+from django.conf import settings
 
 from rest_framework_simplejwt.tokens import RefreshToken
 
@@ -25,6 +26,10 @@ class AuthAPIView(APIView):
 
         phone = serializer.validated_data["phone"]
         code = serializer.validated_data.get("code")
+
+        # Check if code is empty string or None
+        if code:
+            code = code.strip()
 
         # If no code provided → send SMS
         if not code:
@@ -53,6 +58,10 @@ class AuthAPIView(APIView):
 
         # If code provided → verify and return token
         else:
+            # Normalize phone number for comparison
+            phone = phone.strip()
+            code = code.strip()
+
             # Check if user exists
             try:
                 user = User.objects.get(phone=phone)
@@ -70,8 +79,20 @@ class AuthAPIView(APIView):
             )
 
             if not otp:
+                # Debug: show what codes exist for this phone
+                all_codes = PhoneOTP.objects.filter(phone=phone).order_by(
+                    "-created_at"
+                )[:3]
+                debug_info = [
+                    f"Code: {c.code}, Used: {c.is_used}, Created: {c.created_at}"
+                    for c in all_codes
+                ]
                 return Response(
-                    {"error": "Code is incorrect or already used"},
+                    {
+                        "error": "Code is incorrect or already used",
+                        "debug": f"Looking for code '{code}' for phone '{phone}'",
+                        "recent_codes": debug_info if settings.DEBUG else None,
+                    },
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 

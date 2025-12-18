@@ -11,6 +11,9 @@ class HouseAccessPermission(BasePermission):
     def has_object_permission(self, request, view, obj):
         user = request.user
 
+        if not user.is_authenticated or not hasattr(user, 'role'):
+            return False
+
         if user.role == "super_admin":
             return True
 

@@ -13,6 +13,9 @@ class HouseViewSet(ModelViewSet):
     def get_queryset(self):
         user = self.request.user
 
+        if not user.is_authenticated or not hasattr(user, 'role'):
+            return House.objects.none()
+
         if user.role == "super_admin":
             return House.objects.all()
 

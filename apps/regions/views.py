@@ -15,13 +15,13 @@ from .permissions import IsSuperAdmin
 
 class RegionViewSet(ModelViewSet):
     queryset = Region.objects.prefetch_related("districts__mahallas__admin").all()
-    permission_classes = [AllowAny]  # Vaqtinchalik test uchun
-    serializer_class = RegionDetailSerializer  # Hamma joyda to'liq ma'lumot
+    permission_classes = [IsAuthenticated]
+    serializer_class = RegionDetailSerializer
 
 
 class DistrictViewSet(ModelViewSet):
     queryset = District.objects.select_related("region").all()
-    permission_classes = [AllowAny]  # Vaqtinchalik test uchun
+    permission_classes = [IsAuthenticated]
 
     def get_serializer_class(self):
         if self.action in ["create", "update", "partial_update"]:
@@ -31,7 +31,7 @@ class DistrictViewSet(ModelViewSet):
 
 class MahallaViewSet(ModelViewSet):
     queryset = Mahalla.objects.select_related("district", "admin").all()
-    permission_classes = [AllowAny]  # Vaqtinchalik test uchun
+    permission_classes = [IsAuthenticated]
 
     def get_serializer_class(self):
         if self.action in ["create", "update", "partial_update"]:

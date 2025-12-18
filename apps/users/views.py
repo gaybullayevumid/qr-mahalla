@@ -1,7 +1,7 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 
 from rest_framework_simplejwt.tokens import RefreshToken
 
@@ -14,6 +14,8 @@ class RegisterAPIView(APIView):
     """
     Register via phone number and send SMS code
     """
+
+    permission_classes = [AllowAny]
 
     def post(self, request):
         serializer = RegisterSerializer(data=request.data)
@@ -49,6 +51,8 @@ class VerifyOTPAPIView(APIView):
     """
     Verify SMS code and get token
     """
+
+    permission_classes = [AllowAny]
 
     def post(self, request):
         serializer = VerifyOTPSerializer(data=request.data)

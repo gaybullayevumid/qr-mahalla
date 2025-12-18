@@ -17,15 +17,19 @@ class PhoneAuthentication(BaseAuthentication):
         if not auth_header:
             return None
 
-        # Check "Phone +998901234567" format
+        # Check "Phone +998901234567" format OR just "+998901234567"
         parts = auth_header.split()
 
         print(f"DEBUG: Parts = {parts}")
 
-        if len(parts) != 2 or parts[0].lower() != "phone":
+        # If format is "Phone +998901234567"
+        if len(parts) == 2 and parts[0].lower() == "phone":
+            phone = parts[1]
+        # If format is just "+998901234567"
+        elif len(parts) == 1 and parts[0].startswith("+998"):
+            phone = parts[0]
+        else:
             return None
-
-        phone = parts[1]
 
         print(f"DEBUG: Looking for phone = '{phone}'")
 

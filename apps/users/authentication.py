@@ -5,7 +5,7 @@ from .models import User
 
 class PhoneAuthentication(BaseAuthentication):
     """
-    Telefon raqam orqali autentifikatsiya (vaqtinchalik)
+    Authentication via phone number (temporary)
     Authorization: Phone +998901234567
     """
 
@@ -17,7 +17,7 @@ class PhoneAuthentication(BaseAuthentication):
         if not auth_header:
             return None
 
-        # "Phone +998901234567" formatini tekshirish
+        # Check "Phone +998901234567" format
         parts = auth_header.split()
 
         print(f"DEBUG: Parts = {parts}")
@@ -35,7 +35,7 @@ class PhoneAuthentication(BaseAuthentication):
             return (user, None)
         except User.DoesNotExist:
             print(f"DEBUG: User not found!")
-            raise AuthenticationFailed("Foydalanuvchi topilmadi")
+            raise AuthenticationFailed("User not found")
 
     def authenticate_header(self, request):
         return "Phone"

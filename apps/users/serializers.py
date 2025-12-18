@@ -6,11 +6,11 @@ class RegisterSerializer(serializers.Serializer):
     phone = serializers.CharField(max_length=15)
 
     def validate_phone(self, value):
-        # Telefon raqam formatini tekshirish
+        # Check phone number format
         phone_pattern = re.compile(r"^\+?998[0-9]{9}$")
         if not phone_pattern.match(value):
             raise serializers.ValidationError(
-                "Telefon raqam formati noto'g'ri. Format: +998901234567"
+                "Invalid phone number format. Format: +998901234567"
             )
         return value
 

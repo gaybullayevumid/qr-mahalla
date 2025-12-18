@@ -87,14 +87,14 @@ class QRCodeListAPIView(generics.ListAPIView):
         if not user.is_authenticated or not hasattr(user, 'role'):
             return queryset.none()
 
-        # Foydalanuvchi roliga qarab filterlash
+        # Filter based on user role
         if user.role == "owner":
-            # Uy egasi faqat o'z uylarining QR kodlarini ko'ra oladi
+            # Owner can see only their houses' QR codes
             queryset = queryset.filter(house__owner=user)
         elif user.role == "mahalla_admin":
-            # Mahalla admin faqat o'z mahallasining QR kodlarini ko'ra oladi
+            # Neighborhood admin can see only their neighborhood's QR codes
             queryset = queryset.filter(house__mahalla=user.mahalla)
-        # super_admin, government barcha QR kodlarni ko'ra oladi
+        # super_admin, government can see all QR codes
 
         return queryset
 
@@ -139,7 +139,7 @@ class QRCodeDetailAPIView(generics.RetrieveAPIView):
         if not user.is_authenticated or not hasattr(user, 'role'):
             return queryset.none()
 
-        # Foydalanuvchi roliga qarab filterlash
+        # Filter based on user role
         if user.role == "owner":
             queryset = queryset.filter(house__owner=user)
         elif user.role == "mahalla_admin":

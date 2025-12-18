@@ -3,7 +3,7 @@ from .models import Region, District, Mahalla
 
 
 class MahallaSerializer(serializers.ModelSerializer):
-    """Mahalla serializer - district ID bilan"""
+    """Neighborhood serializer - with district ID"""
 
     class Meta:
         model = Mahalla
@@ -11,7 +11,7 @@ class MahallaSerializer(serializers.ModelSerializer):
 
 
 class MahallaCreateSerializer(serializers.ModelSerializer):
-    """Mahalla yaratish uchun"""
+    """Create neighborhood"""
 
     class Meta:
         model = Mahalla
@@ -20,12 +20,12 @@ class MahallaCreateSerializer(serializers.ModelSerializer):
 
     def validate_district(self, value):
         if not District.objects.filter(id=value.id).exists():
-            raise serializers.ValidationError("Tuman topilmadi")
+            raise serializers.ValidationError("District not found")
         return value
 
 
 class MahallaNestedSerializer(serializers.ModelSerializer):
-    """Mahalla nested serializer - district ichida"""
+    """Neighborhood nested serializer - inside district"""
 
     admin_name = serializers.SerializerMethodField()
 
@@ -40,7 +40,7 @@ class MahallaNestedSerializer(serializers.ModelSerializer):
 
 
 class DistrictSerializer(serializers.ModelSerializer):
-    """District serializer - region ID bilan"""
+    """District serializer - with region ID"""
 
     class Meta:
         model = District
@@ -48,7 +48,7 @@ class DistrictSerializer(serializers.ModelSerializer):
 
 
 class DistrictCreateSerializer(serializers.ModelSerializer):
-    """District yaratish uchun"""
+    """Create district"""
 
     class Meta:
         model = District
@@ -56,12 +56,12 @@ class DistrictCreateSerializer(serializers.ModelSerializer):
 
     def validate_region(self, value):
         if not Region.objects.filter(id=value.id).exists():
-            raise serializers.ValidationError("Region topilmadi")
+            raise serializers.ValidationError("Region not found")
         return value
 
 
 class DistrictNestedSerializer(serializers.ModelSerializer):
-    """District nested serializer - region ichida mahallalar bilan"""
+    """District nested serializer - inside region with neighborhoods"""
 
     mahallas = MahallaNestedSerializer(many=True, read_only=True)
 
@@ -71,7 +71,7 @@ class DistrictNestedSerializer(serializers.ModelSerializer):
 
 
 class RegionSerializer(serializers.ModelSerializer):
-    """Region serializer - oddiy"""
+    """Region serializer - simple"""
 
     class Meta:
         model = Region
@@ -79,7 +79,7 @@ class RegionSerializer(serializers.ModelSerializer):
 
 
 class RegionDetailSerializer(serializers.ModelSerializer):
-    """Region detail serializer - tumanlar va mahallalar bilan"""
+    """Region detail serializer - with districts and neighborhoods"""
 
     districts = DistrictNestedSerializer(many=True, read_only=True)
 

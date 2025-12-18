@@ -12,7 +12,7 @@ from .services import send_sms
 
 class RegisterAPIView(APIView):
     """
-    Telefon raqam orqali ro'yxatdan o'tish va SMS kod yuborish
+    Register via phone number and send SMS code
     """
 
     def post(self, request):
@@ -21,31 +21,35 @@ class RegisterAPIView(APIView):
 
         phone = serializer.validated_data["phone"]
 
-        # Foydalanuvchi yaratish yoki olish
+        # Create or get user
         user, created = User.objects.get_or_create(phone=phone)
 
-        # Eski kodlarni bekor qilish
+        # Invalidate old codes
         PhoneOTP.objects.filter(phone=phone, is_used=False).update(is_used=True)
 
-        # Yangi kod yaratish
+        # Generate new code
         code = PhoneOTP.generate_code()
         PhoneOTP.objects.create(phone=phone, code=code)
 
-        # SMS yuborish
+        # Send SMS
         try:
             send_sms(phone, code)
             return Response(
-                {"message": "SMS kod yuborildi", "phone": phone},
+                {"message": "SMS code sent", "phone": phone},
                 status=status.HTTP_200_OK,
             )
         except Exception as e:
             return Response(
-                {"error": "SMS yuborishda xatolik yuz berdi"},
+                {"error": "Error sending SMS"},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
 
 
 class VerifyOTPAPIView(APIView):
+    """
+    Verify SMS code and get token
+    """
+
     def post(self, request):
         serializer = VerifyOTPSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -53,16 +57,16 @@ class VerifyOTPAPIView(APIView):
         phone = serializer.validated_data["phone"]
         code = serializer.validated_data["code"]
 
-        # Foydalanuvchi mavjudligini tekshirish
+        # Check if user exists
         try:
             user = User.objects.get(phone=phone)
         except User.DoesNotExist:
             return Response(
-                {"error": "Foydalanuvchi topilmadi"},
+                {"error": "User not found"},
                 status=status.HTTP_404_NOT_FOUND,
             )
 
-        # OTP kodni tekshirish
+        # Check OTP code
         otp = (
             PhoneOTP.objects.filter(phone=phone, code=code, is_used=False)
             .order_by("-created_at")
@@ -71,25 +75,25 @@ class VerifyOTPAPIView(APIView):
 
         if not otp:
             return Response(
-                {"error": "Kod noto'g'ri yoki allaqachon ishlatilgan"},
+                {"error": "Code is incorrect or already used"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
         if otp.is_expired():
             return Response(
-                {"error": "Kod muddati tugagan. Iltimos, qaytadan kod oling"},
+                {"error": "Code has expired. Please request a new code"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # OTP kodni ishlatilgan deb belgilash
+        # Mark OTP as used
         otp.is_used = True
         otp.save()
 
-        # Foydalanuvchini tasdiqlash
+        # Verify user
         user.is_verified = True
         user.save()
 
-        # JWT token yaratish
+        # Create JWT token
         refresh = RefreshToken.for_user(user)
 
         return Response(
@@ -109,7 +113,7 @@ class VerifyOTPAPIView(APIView):
 
 class UserProfileAPIView(APIView):
     """
-    Foydalanuvchi profilini ko'rish
+    Get user profile
     """
 
     permission_classes = [IsAuthenticated]
@@ -119,7 +123,7 @@ class UserProfileAPIView(APIView):
 
         if not user.is_authenticated or not hasattr(user, "role"):
             return Response(
-                {"error": "Autentifikatsiya talab qilinadi"},
+                {"error": "Authentication required"},
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 

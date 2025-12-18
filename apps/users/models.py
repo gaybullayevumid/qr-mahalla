@@ -14,26 +14,24 @@ class User(AbstractBaseUser, PermissionsMixin):
         ("user", "Oddiy foydalanuvchi"),
     )
 
-    phone = models.CharField(max_length=15, unique=True, verbose_name="Telefon raqam")
+    phone = models.CharField(max_length=15, unique=True, verbose_name="Phone number")
 
-    first_name = models.CharField(max_length=100, blank=True, verbose_name="Ism")
-    last_name = models.CharField(max_length=100, blank=True, verbose_name="Familiya")
+    first_name = models.CharField(max_length=100, blank=True, verbose_name="First name")
+    last_name = models.CharField(max_length=100, blank=True, verbose_name="Last name")
     passport_id = models.CharField(
-        max_length=20, blank=True, verbose_name="Pasport seriya"
+        max_length=20, blank=True, verbose_name="Passport ID"
     )
-    address = models.TextField(blank=True, verbose_name="Manzil")
+    address = models.TextField(blank=True, verbose_name="Address")
 
     role = models.CharField(
-        max_length=20, choices=ROLE_CHOICES, default="user", verbose_name="Rol"
+        max_length=20, choices=ROLE_CHOICES, default="user", verbose_name="Role"
     )
 
-    is_active = models.BooleanField(default=True, verbose_name="Faol")
-    is_verified = models.BooleanField(default=False, verbose_name="Tasdiqlangan")
-    is_staff = models.BooleanField(default=False, verbose_name="Xodim")
+    is_active = models.BooleanField(default=True, verbose_name="Active")
+    is_verified = models.BooleanField(default=False, verbose_name="Verified")
+    is_staff = models.BooleanField(default=False, verbose_name="Staff")
 
-    date_joined = models.DateTimeField(
-        auto_now_add=True, verbose_name="Ro'yxatdan o'tgan sana"
-    )
+    date_joined = models.DateTimeField(auto_now_add=True, verbose_name="Date joined")
 
     USERNAME_FIELD = "phone"
     REQUIRED_FIELDS = []
@@ -41,8 +39,8 @@ class User(AbstractBaseUser, PermissionsMixin):
     objects = UserManager()
 
     class Meta:
-        verbose_name = "Foydalanuvchi"
-        verbose_name_plural = "Foydalanuvchilar"
+        verbose_name = "User"
+        verbose_name_plural = "Users"
         ordering = ["-date_joined"]
 
     def __str__(self):
@@ -50,14 +48,14 @@ class User(AbstractBaseUser, PermissionsMixin):
 
 
 class PhoneOTP(models.Model):
-    phone = models.CharField(max_length=15, verbose_name="Telefon raqam")
-    code = models.CharField(max_length=6, verbose_name="Kod")
-    is_used = models.BooleanField(default=False, verbose_name="Ishlatilgan")
-    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Yaratilgan sana")
+    phone = models.CharField(max_length=15, verbose_name="Phone number")
+    code = models.CharField(max_length=6, verbose_name="Code")
+    is_used = models.BooleanField(default=False, verbose_name="Used")
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Created at")
 
     class Meta:
-        verbose_name = "SMS kod"
-        verbose_name_plural = "SMS kodlar"
+        verbose_name = "SMS Code"
+        verbose_name_plural = "SMS Codes"
         ordering = ["-created_at"]
 
     def is_expired(self):

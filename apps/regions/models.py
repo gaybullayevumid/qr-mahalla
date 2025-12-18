@@ -3,11 +3,11 @@ from apps.users.models import User
 
 
 class Region(models.Model):
-    name = models.CharField(max_length=100, verbose_name="Viloyat nomi")
+    name = models.CharField(max_length=100, verbose_name="Region name")
 
     class Meta:
-        verbose_name = "Viloyat"
-        verbose_name_plural = "Viloyatlar"
+        verbose_name = "Region"
+        verbose_name_plural = "Regions"
         ordering = ["name"]
 
     def __str__(self):
@@ -19,13 +19,13 @@ class District(models.Model):
         Region,
         on_delete=models.CASCADE,
         related_name="districts",
-        verbose_name="Viloyat",
+        verbose_name="Region",
     )
-    name = models.CharField(max_length=100, verbose_name="Tuman nomi")
+    name = models.CharField(max_length=100, verbose_name="District name")
 
     class Meta:
-        verbose_name = "Tuman"
-        verbose_name_plural = "Tumanlar"
+        verbose_name = "District"
+        verbose_name_plural = "Districts"
         ordering = ["region", "name"]
 
     def __str__(self):
@@ -37,23 +37,23 @@ class Mahalla(models.Model):
         District,
         on_delete=models.CASCADE,
         related_name="mahallas",
-        verbose_name="Tuman",
+        verbose_name="District",
     )
-    name = models.CharField(max_length=100, verbose_name="Mahalla nomi")
+    name = models.CharField(max_length=100, verbose_name="Neighborhood name")
 
-    # mahalla boshlig'i
+    # neighborhood admin
     admin = models.OneToOneField(
         User,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
         related_name="mahalla",
-        verbose_name="Mahalla boshlig'i",
+        verbose_name="Neighborhood admin",
     )
 
     class Meta:
-        verbose_name = "Mahalla"
-        verbose_name_plural = "Mahallalar"
+        verbose_name = "Neighborhood"
+        verbose_name_plural = "Neighborhoods"
         ordering = ["district", "name"]
 
     def __str__(self):

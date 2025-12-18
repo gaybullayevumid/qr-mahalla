@@ -1,34 +1,39 @@
 from rest_framework.viewsets import ModelViewSet
-from rest_framework.permissions import IsAuthenticated
+from rest_framework.permissions import IsAuthenticated, AllowAny
 
 from .models import Region, District, Mahalla
 from .serializers import (
     RegionSerializer,
     RegionDetailSerializer,
     DistrictSerializer,
+    DistrictCreateSerializer,
     MahallaSerializer,
+    MahallaCreateSerializer,
 )
 from .permissions import IsSuperAdmin
 
 
 class RegionViewSet(ModelViewSet):
     queryset = Region.objects.prefetch_related("districts__mahallas__admin").all()
-    permission_classes = [IsAuthenticated, IsSuperAdmin]
-
-    def get_serializer_class(self):
-        # Detail view uchun nested serializer
-        if self.action == "retrieve":
-            return RegionDetailSerializer
-        return RegionSerializer
+    permission_classes = [AllowAny]  # Vaqtinchalik test uchun
+    serializer_class = RegionDetailSerializer  # Hamma joyda to'liq ma'lumot
 
 
 class DistrictViewSet(ModelViewSet):
     queryset = District.objects.select_related("region").all()
-    serializer_class = DistrictSerializer
-    permission_classes = [IsAuthenticated, IsSuperAdmin]
+    permission_classes = [AllowAny]  # Vaqtinchalik test uchun
+
+    def get_serializer_class(self):
+        if self.action in ["create", "update", "partial_update"]:
+            return DistrictCreateSerializer
+        return DistrictSerializer
 
 
 class MahallaViewSet(ModelViewSet):
     queryset = Mahalla.objects.select_related("district", "admin").all()
-    serializer_class = MahallaSerializer
-    permission_classes = [IsAuthenticated, IsSuperAdmin]
+    permission_classes = [AllowAny]  # Vaqtinchalik test uchun
+
+    def get_serializer_class(self):
+        if self.action in ["create", "update", "partial_update"]:
+            return MahallaCreateSerializer
+        return MahallaSerializer

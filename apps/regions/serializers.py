@@ -10,6 +10,20 @@ class MahallaSerializer(serializers.ModelSerializer):
         fields = ("id", "name", "district", "admin")
 
 
+class MahallaCreateSerializer(serializers.ModelSerializer):
+    """Mahalla yaratish uchun"""
+
+    class Meta:
+        model = Mahalla
+        fields = ("name", "district", "admin")
+        extra_kwargs = {"admin": {"required": False}}
+
+    def validate_district(self, value):
+        if not District.objects.filter(id=value.id).exists():
+            raise serializers.ValidationError("Tuman topilmadi")
+        return value
+
+
 class MahallaNestedSerializer(serializers.ModelSerializer):
     """Mahalla nested serializer - district ichida"""
 
@@ -31,6 +45,19 @@ class DistrictSerializer(serializers.ModelSerializer):
     class Meta:
         model = District
         fields = ("id", "name", "region")
+
+
+class DistrictCreateSerializer(serializers.ModelSerializer):
+    """District yaratish uchun"""
+
+    class Meta:
+        model = District
+        fields = ("name", "region")
+
+    def validate_region(self, value):
+        if not Region.objects.filter(id=value.id).exists():
+            raise serializers.ValidationError("Region topilmadi")
+        return value
 
 
 class DistrictNestedSerializer(serializers.ModelSerializer):

@@ -9,6 +9,10 @@ class AuthSerializer(serializers.Serializer):
     code = serializers.CharField(
         max_length=6, required=False, allow_blank=True, allow_null=True
     )
+    device_id = serializers.CharField(max_length=255, required=False, allow_blank=True)
+    device_name = serializers.CharField(
+        max_length=255, required=False, allow_blank=True
+    )
 
     def validate_phone(self, value):
         # Check phone number format

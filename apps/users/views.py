@@ -6,9 +6,19 @@ from django.conf import settings
 
 from rest_framework_simplejwt.tokens import RefreshToken
 
-from .models import User, PhoneOTP
+from .models import User, PhoneOTP, UserSession
 from .serializers import AuthSerializer
 from .services import send_sms
+
+
+def get_client_ip(request):
+    """Get client IP address from request"""
+    x_forwarded_for = request.META.get("HTTP_X_FORWARDED_FOR")
+    if x_forwarded_for:
+        ip = x_forwarded_for.split(",")[0]
+    else:
+        ip = request.META.get("REMOTE_ADDR")
+    return ip
 
 
 class AuthAPIView(APIView):
@@ -110,8 +120,25 @@ class AuthAPIView(APIView):
             user.is_verified = True
             user.save()
 
+            # Get device info from request
+            device_id = request.data.get("device_id", "unknown")
+            device_name = request.data.get("device_name", "")
+
             # Create JWT token
             refresh = RefreshToken.for_user(user)
+
+            # Create or update session
+            session, created = UserSession.objects.update_or_create(
+                user=user,
+                device_id=device_id,
+                defaults={
+                    "device_name": device_name,
+                    "refresh_token": str(refresh),
+                    "ip_address": get_client_ip(request),
+                    "user_agent": request.META.get("HTTP_USER_AGENT", ""),
+                    "is_active": True,
+                },
+            )
 
             return Response(
                 {
@@ -155,3 +182,82 @@ class UserProfileAPIView(APIView):
                 "is_verified": user.is_verified,
             }
         )
+
+
+class UserSessionsAPIView(APIView):
+    """
+    Get user's active sessions
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        sessions = UserSession.objects.filter(
+            user=request.user, is_active=True
+        ).order_by("-last_activity")
+
+        session_list = []
+        for session in sessions:
+            session_list.append(
+                {
+                    "id": session.id,
+                    "device_id": session.device_id,
+                    "device_name": session.device_name,
+                    "ip_address": session.ip_address,
+                    "last_activity": session.last_activity,
+                    "created_at": session.created_at,
+                }
+            )
+
+        return Response({"count": len(session_list), "sessions": session_list})
+
+
+class LogoutDeviceAPIView(APIView):
+    """
+    Logout from specific device
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        device_id = request.data.get("device_id")
+
+        if not device_id:
+            return Response(
+                {"error": "device_id is required"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            session = UserSession.objects.get(user=request.user, device_id=device_id)
+            session.is_active = False
+            session.save()
+
+            return Response({"message": "Logged out successfully from this device"})
+        except UserSession.DoesNotExist:
+            return Response(
+                {"error": "Session not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+
+class LogoutAllDevicesAPIView(APIView):
+    """
+    Logout from all devices except current
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        current_device_id = request.data.get("device_id")
+
+        # Deactivate all sessions except current device
+        if current_device_id:
+            UserSession.objects.filter(user=request.user, is_active=True).exclude(
+                device_id=current_device_id
+            ).update(is_active=False)
+        else:
+            # Deactivate all sessions
+            UserSession.objects.filter(user=request.user, is_active=True).update(
+                is_active=False
+            )
+
+        return Response({"message": "Logged out from all other devices"})

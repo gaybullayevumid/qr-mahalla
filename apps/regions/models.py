@@ -42,12 +42,12 @@ class Mahalla(models.Model):
     name = models.CharField(max_length=100, verbose_name="Neighborhood name")
 
     # neighborhood admin
-    admin = models.OneToOneField(
+    admin = models.ForeignKey(
         User,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name="mahalla",
+        related_name="managed_mahallas",
         verbose_name="Neighborhood admin",
     )
 

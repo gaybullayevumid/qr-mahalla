@@ -54,3 +54,12 @@ class QRCodeCreateSerializer(serializers.ModelSerializer):
         if QRCode.objects.filter(house=value).exists():
             raise serializers.ValidationError("QR code already exists for this house")
         return value
+
+
+class QRCodeClaimSerializer(serializers.Serializer):
+    """Serializer for claiming house ownership via QR code"""
+
+    first_name = serializers.CharField(max_length=100)
+    last_name = serializers.CharField(max_length=100)
+    passport_id = serializers.CharField(max_length=20)
+    address = serializers.CharField(max_length=255)

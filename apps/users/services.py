@@ -9,12 +9,12 @@ def send_sms(phone, code):
     try:
         bot_token = settings.TELEGRAM_BOT_TOKEN
 
-        # Format message
+        # Format message with code as monospace (easy to copy)
         message = f"""
 🔐 QR Mahalla - Verification Code
 
-Phone: {phone}
-Code: {code}
+Phone: <code>{phone}</code>
+Code: <code>{code}</code>
 
 This code will expire in 2 minutes.
 """

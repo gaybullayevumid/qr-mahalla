@@ -81,6 +81,14 @@ class RegionSerializer(serializers.ModelSerializer):
         read_only_fields = ("id",)
 
 
+class RegionCreateSerializer(serializers.ModelSerializer):
+    """Create region - only name required"""
+
+    class Meta:
+        model = Region
+        fields = ("name",)
+
+
 class RegionDetailSerializer(serializers.ModelSerializer):
     """Region detail serializer - with districts and neighborhoods"""
 

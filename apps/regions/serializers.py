@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from .models import Region, District, Mahalla
+from apps.users.models import User
 
 
 class MahallaSerializer(serializers.ModelSerializer):
@@ -14,10 +15,14 @@ class MahallaSerializer(serializers.ModelSerializer):
 class MahallaCreateSerializer(serializers.ModelSerializer):
     """Create neighborhood"""
 
+    district = serializers.PrimaryKeyRelatedField(queryset=District.objects.all())
+    admin = serializers.PrimaryKeyRelatedField(
+        queryset=User.objects.all(), required=False, allow_null=True
+    )
+
     class Meta:
         model = Mahalla
         fields = ("name", "district", "admin")
-        extra_kwargs = {"admin": {"required": False}}
 
 
 class MahallaNestedSerializer(serializers.ModelSerializer):
@@ -46,6 +51,8 @@ class DistrictSerializer(serializers.ModelSerializer):
 
 class DistrictCreateSerializer(serializers.ModelSerializer):
     """Create district"""
+
+    region = serializers.PrimaryKeyRelatedField(queryset=Region.objects.all())
 
     class Meta:
         model = District

@@ -18,7 +18,6 @@ from .permissions import IsSuperAdmin, IsAdminOrGovernment
 
 class RegionViewSet(ModelViewSet):
     queryset = Region.objects.prefetch_related("districts__mahallas__admin").all()
-    permission_classes = [IsAuthenticated]
 
     def get_permissions(self):
         """
@@ -37,7 +36,6 @@ class RegionViewSet(ModelViewSet):
 
 class DistrictViewSet(ModelViewSet):
     queryset = District.objects.select_related("region").all()
-    permission_classes = [IsAuthenticated]
 
     def get_permissions(self):
         """
@@ -67,7 +65,6 @@ class DistrictViewSet(ModelViewSet):
 
 class MahallaViewSet(ModelViewSet):
     queryset = Mahalla.objects.select_related("district", "admin").all()
-    permission_classes = [IsAuthenticated]
 
     def get_permissions(self):
         """

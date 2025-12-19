@@ -21,6 +21,10 @@ class OwnerPrivateSerializer(OwnerPublicSerializer):
 
 
 class QRCodeSerializer(serializers.ModelSerializer):
+    is_claimed = serializers.SerializerMethodField()
+    can_claim = serializers.SerializerMethodField()
+    claim_url = serializers.SerializerMethodField()
+
     class Meta:
         model = QRCode
         fields = [
@@ -28,6 +32,9 @@ class QRCodeSerializer(serializers.ModelSerializer):
             "uuid",
             "image",
             "is_delivered",
+            "is_claimed",
+            "can_claim",
+            "claim_url",
             "created_at",
         ]
         read_only_fields = [
@@ -37,6 +44,20 @@ class QRCodeSerializer(serializers.ModelSerializer):
             "created_at",
             "is_delivered",
         ]
+
+    def get_is_claimed(self, obj):
+        """Check if house has an owner"""
+        return obj.house.owner is not None
+
+    def get_can_claim(self, obj):
+        """Check if house can be claimed (no owner)"""
+        return obj.house.owner is None
+
+    def get_claim_url(self, obj):
+        """Return claim URL if house is unclaimed"""
+        if obj.house.owner is None:
+            return f"/api/qrcode/claim/{obj.id}/"
+        return None
 
 
 class QRCodeCreateSerializer(serializers.ModelSerializer):

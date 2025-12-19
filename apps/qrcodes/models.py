@@ -7,11 +7,10 @@ from django.core.files import File
 from django.conf import settings
 
 from apps.houses.models import House
+from apps.utils import GapFillingIDMixin
 
 
-class QRCode(models.Model):
-    id = models.AutoField(primary_key=True, verbose_name="ID")
-
+class QRCode(GapFillingIDMixin, models.Model):
     uuid = models.CharField(
         max_length=16, unique=True, editable=False, verbose_name="UUID"
     )
@@ -46,7 +45,7 @@ class QRCode(models.Model):
     class Meta:
         verbose_name = "QR Code"
         verbose_name_plural = "QR Codes"
-        ordering = ["-created_at"]
+        ordering = ["id"]
 
     def save(self, *args, **kwargs):
         if not self.uuid:

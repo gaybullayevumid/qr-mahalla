@@ -1,12 +1,11 @@
 import uuid
 from django.db import models
+from apps.utils import GapFillingIDMixin
 from ..users.models import User
 from ..regions.models import Mahalla
 
 
-class House(models.Model):
-    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
-
+class House(GapFillingIDMixin, models.Model):
     owner = models.ForeignKey(
         User,
         on_delete=models.CASCADE,

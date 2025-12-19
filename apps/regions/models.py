@@ -1,8 +1,9 @@
 from django.db import models
+from apps.utils import GapFillingIDMixin
 from apps.users.models import User
 
 
-class Region(models.Model):
+class Region(GapFillingIDMixin, models.Model):
     name = models.CharField(max_length=100, verbose_name="Region name")
 
     class Meta:
@@ -14,7 +15,7 @@ class Region(models.Model):
         return self.name
 
 
-class District(models.Model):
+class District(GapFillingIDMixin, models.Model):
     region = models.ForeignKey(
         Region,
         on_delete=models.CASCADE,
@@ -32,7 +33,7 @@ class District(models.Model):
         return f"{self.region.name} - {self.name}"
 
 
-class Mahalla(models.Model):
+class Mahalla(GapFillingIDMixin, models.Model):
     district = models.ForeignKey(
         District,
         on_delete=models.CASCADE,

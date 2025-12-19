@@ -1,9 +1,10 @@
 from django.db import models
+from apps.utils import GapFillingIDMixin
 from apps.qrcodes.models import QRCode
 from apps.users.models import User
 
 
-class ScanLog(models.Model):
+class ScanLog(GapFillingIDMixin, models.Model):
     qr = models.ForeignKey(QRCode, on_delete=models.CASCADE, verbose_name="QR Code")
     scanned_by = models.ForeignKey(
         User,

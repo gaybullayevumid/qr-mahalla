@@ -22,7 +22,7 @@ ALLOWED_HOSTS = ["*"]
 TELEGRAM_BOT_TOKEN = os.getenv(
     "TELEGRAM_BOT_TOKEN", "8443848056:AAFSUPSsd4OusBcmC10KODDzxbRi3VfSwdY"
 )
-TELEGRAM_CHAT_ID = os.getenv("8055309446", None)
+TELEGRAM_CHAT_ID = os.getenv("TELEGRAM_CHAT_ID", "8055309446")
 
 # https://qrmahalla.vercel.app/
 

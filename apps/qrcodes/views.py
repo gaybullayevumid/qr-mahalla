@@ -389,3 +389,186 @@ class QRCodeUnmarkDeliveredAPIView(APIView):
             },
             status=status.HTTP_200_OK,
         )
+
+
+class QRScanByUUIDAPIView(APIView):
+    """
+    Scan QR code using UUID (from QR code itself)
+    This is the main endpoint for regular users scanning QR codes
+    URL: /api/qrcodes/scan-uuid/{uuid}/
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, uuid):
+        try:
+            qr = QRCode.objects.select_related(
+                "house",
+                "house__owner",
+                "house__mahalla",
+                "house__mahalla__district",
+                "house__mahalla__district__region",
+            ).get(uuid=uuid)
+        except QRCode.DoesNotExist:
+            return Response(
+                {"error": "QR code not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Check if house has no owner - needs to be claimed
+        if not qr.house.owner:
+            return Response(
+                {
+                    "status": "unclaimed",
+                    "is_claimed": False,
+                    "can_claim": True,
+                    "message": "This house has no owner yet. You can claim it.",
+                    "qr_id": qr.id,
+                    "uuid": qr.uuid,
+                    "claim_url": f"/api/qrcodes/claim-uuid/{qr.uuid}/",
+                    "house_address": qr.house.address,
+                    "mahalla": qr.house.mahalla.name,
+                    "district": qr.house.mahalla.district.name,
+                    "region": qr.house.mahalla.district.region.name,
+                    "house_number": qr.house.house_number,
+                },
+                status=status.HTTP_200_OK,
+            )
+
+        # Log the scan
+        ScanLog.objects.create(
+            qr=qr, scanned_by=request.user, ip_address=get_client_ip(request)
+        )
+
+        owner = qr.house.owner
+        user = request.user
+
+        if not user.is_authenticated or not hasattr(user, "role"):
+            return Response(
+                {"detail": "Authentication required"},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+
+        # Return info based on user role
+        if user.role == "user":
+            return Response(
+                {
+                    "status": "claimed",
+                    "is_claimed": True,
+                    "can_claim": False,
+                    "first_name": owner.first_name,
+                    "last_name": owner.last_name,
+                    "phone": owner.phone,
+                    "house_address": qr.house.address,
+                    "mahalla": qr.house.mahalla.name,
+                    "district": qr.house.mahalla.district.name,
+                    "region": qr.house.mahalla.district.region.name,
+                }
+            )
+
+        if user.role == "owner":
+            return Response(
+                {
+                    "status": "claimed",
+                    "is_claimed": True,
+                    "can_claim": False,
+                    "first_name": owner.first_name,
+                    "last_name": owner.last_name,
+                    "phone": owner.phone,
+                    "passport_id": owner.passport_id,
+                    "address": owner.address,
+                    "house_address": qr.house.address,
+                    "mahalla": qr.house.mahalla.name,
+                    "district": qr.house.mahalla.district.name,
+                    "region": qr.house.mahalla.district.region.name,
+                }
+            )
+
+        if user.role in ["government", "mahalla_admin", "super_admin"]:
+            return Response(
+                {
+                    "status": "claimed",
+                    "is_claimed": True,
+                    "can_claim": False,
+                    "first_name": owner.first_name,
+                    "last_name": owner.last_name,
+                    "phone": owner.phone,
+                    "passport_id": owner.passport_id,
+                    "address": owner.address,
+                    "house_address": qr.house.address,
+                    "mahalla": qr.house.mahalla.name,
+                    "district": qr.house.mahalla.district.name,
+                    "region": qr.house.mahalla.district.region.name,
+                }
+            )
+
+        return Response({"detail": "Access denied"}, status=status.HTTP_403_FORBIDDEN)
+
+
+class QRCodeClaimByUUIDAPIView(APIView):
+    """
+    Claim house ownership via QR code UUID
+    Regular user scans QR code and submits their information to claim the house
+    URL: /api/qrcodes/claim-uuid/{uuid}/
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request, uuid):
+        try:
+            qr = QRCode.objects.select_related("house", "house__mahalla").get(uuid=uuid)
+        except QRCode.DoesNotExist:
+            return Response(
+                {"error": "QR code not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Check if house already has an owner
+        if qr.house.owner:
+            return Response(
+                {"error": "This house already has an owner"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Validate claim data
+        serializer = QRCodeClaimSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        # Update current user's information
+        user = request.user
+        user.first_name = serializer.validated_data["first_name"]
+        user.last_name = serializer.validated_data["last_name"]
+        user.passport_id = serializer.validated_data["passport_id"]
+        user.address = serializer.validated_data["address"]
+        user.role = "owner"
+        user.save()
+
+        # Assign house to user
+        qr.house.owner = user
+        qr.house.save()
+
+        # Create scan log
+        ScanLog.objects.create(
+            qr=qr, scanned_by=user, ip_address=get_client_ip(request)
+        )
+
+        return Response(
+            {
+                "message": "House claimed successfully",
+                "status": "success",
+                "house": {
+                    "id": str(qr.house.id),
+                    "address": qr.house.address,
+                    "house_number": qr.house.house_number,
+                    "mahalla": qr.house.mahalla.name,
+                },
+                "owner": {
+                    "phone": user.phone,
+                    "first_name": user.first_name,
+                    "last_name": user.last_name,
+                },
+                "qr_code": {
+                    "id": qr.id,
+                    "uuid": qr.uuid,
+                },
+            },
+            status=status.HTTP_200_OK,
+        )

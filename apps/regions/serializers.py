@@ -8,6 +8,7 @@ class MahallaSerializer(serializers.ModelSerializer):
     class Meta:
         model = Mahalla
         fields = ("id", "name", "district", "admin")
+        read_only_fields = ("id",)
 
 
 class MahallaCreateSerializer(serializers.ModelSerializer):
@@ -45,6 +46,7 @@ class DistrictSerializer(serializers.ModelSerializer):
     class Meta:
         model = District
         fields = ("id", "name", "region")
+        read_only_fields = ("id",)
 
 
 class DistrictCreateSerializer(serializers.ModelSerializer):
@@ -76,6 +78,7 @@ class RegionSerializer(serializers.ModelSerializer):
     class Meta:
         model = Region
         fields = ("id", "name")
+        read_only_fields = ("id",)
 
 
 class RegionDetailSerializer(serializers.ModelSerializer):

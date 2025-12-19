@@ -20,7 +20,10 @@ class MahallaCreateSerializer(serializers.ModelSerializer):
         extra_kwargs = {"admin": {"required": False}}
 
     def validate_district(self, value):
-        if not District.objects.filter(id=value.id).exists():
+        # value is already the District instance (DRF converts PK to object)
+        if not District.objects.filter(
+            id=value.id if hasattr(value, "id") else value
+        ).exists():
             raise serializers.ValidationError("District not found")
         return value
 
@@ -57,7 +60,10 @@ class DistrictCreateSerializer(serializers.ModelSerializer):
         fields = ("name", "region")
 
     def validate_region(self, value):
-        if not Region.objects.filter(id=value.id).exists():
+        # value is already the Region instance (DRF converts PK to object)
+        if not Region.objects.filter(
+            id=value.id if hasattr(value, "id") else value
+        ).exists():
             raise serializers.ValidationError("Region not found")
         return value
 

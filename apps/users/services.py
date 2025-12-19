@@ -19,21 +19,34 @@ Code: {code}
 This code will expire in 2 minutes.
 """
 
-        # Try to send to specific chat_id if set
-        chat_id = getattr(settings, "TELEGRAM_CHAT_ID", None)
+        # Try to send to all chat_ids if set
+        chat_ids = getattr(settings, "TELEGRAM_CHAT_IDS", [])
 
-        if chat_id:
+        if chat_ids:
             url = f"https://api.telegram.org/bot{bot_token}/sendMessage"
-            payload = {"chat_id": chat_id, "text": message, "parse_mode": "HTML"}
-            response = requests.post(url, json=payload, timeout=5)
+            success_count = 0
 
-            if response.status_code == 200:
-                print(f"✅ Telegram message sent to {phone}: {code}")
+            for chat_id in chat_ids:
+                chat_id = chat_id.strip()
+                if not chat_id:
+                    continue
+
+                payload = {"chat_id": chat_id, "text": message, "parse_mode": "HTML"}
+                response = requests.post(url, json=payload, timeout=5)
+
+                if response.status_code == 200:
+                    print(f"✅ Telegram message sent to chat {chat_id}: {code}")
+                    success_count += 1
+                else:
+                    print(f"❌ Failed to send to chat {chat_id}: {response.text}")
+
+            if success_count > 0:
+                print(
+                    f"✅ Code sent to {success_count}/{len(chat_ids)} chats for {phone}"
+                )
                 return True
-            else:
-                print(f"❌ Failed to send Telegram message: {response.text}")
         else:
-            print(f"⚠️ TELEGRAM_CHAT_ID not set. Code: {code} for {phone}")
+            print(f"⚠️ TELEGRAM_CHAT_IDS not set. Code: {code} for {phone}")
             print(f"📱 Send /start to bot: https://t.me/{bot_token.split(':')[0]}")
 
         # Fallback: print to console

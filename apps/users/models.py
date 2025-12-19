@@ -28,6 +28,10 @@ class User(AbstractBaseUser, PermissionsMixin):
         max_length=20, choices=ROLE_CHOICES, default="user", verbose_name="Role"
     )
 
+    scanned_qr_code = models.CharField(
+        max_length=16, blank=True, null=True, verbose_name="Scanned QR Code UUID"
+    )
+
     is_active = models.BooleanField(default=True, verbose_name="Active")
     is_verified = models.BooleanField(default=False, verbose_name="Verified")
     is_staff = models.BooleanField(default=False, verbose_name="Staff")
@@ -60,7 +64,7 @@ class PhoneOTP(models.Model):
         ordering = ["-created_at"]
 
     def is_expired(self):
-        return timezone.now() > self.created_at + timezone.timedelta(minutes=2)
+        return timezone.now() > self.created_at + timezone.timedelta(seconds=30)
 
     @staticmethod
     def generate_code():

@@ -64,8 +64,12 @@ class QRScanAPIView(APIView):
             qr=qr, scanned_by=request.user, ip_address=get_client_ip(request)
         )
 
-        owner = qr.house.owner
+        # Save scanned QR code UUID to user
         user = request.user
+        user.scanned_qr_code = qr.uuid
+        user.save(update_fields=['scanned_qr_code'])
+
+        owner = qr.house.owner
 
         if not user.is_authenticated or not hasattr(user, "role"):
             return Response({"detail": "Authentication required"}, status=401)
@@ -484,8 +488,12 @@ class QRScanByUUIDAPIView(APIView):
             qr=qr, scanned_by=request.user, ip_address=get_client_ip(request)
         )
 
-        owner = qr.house.owner
+        # Save scanned QR code UUID to user
         user = request.user
+        user.scanned_qr_code = qr.uuid
+        user.save(update_fields=['scanned_qr_code'])
+
+        owner = qr.house.owner
 
         if not user.is_authenticated or not hasattr(user, "role"):
             return Response(

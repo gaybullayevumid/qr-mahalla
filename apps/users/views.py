@@ -154,6 +154,8 @@ class AuthAPIView(APIView):
                         "role": user.role,
                         "first_name": user.first_name,
                         "last_name": user.last_name,
+                        "scanned_qr_code": user.scanned_qr_code,
+                        "has_scanned_qr": bool(user.scanned_qr_code),
                     },
                 },
                 status=status.HTTP_200_OK,
@@ -185,6 +187,8 @@ class UserProfileAPIView(APIView):
                 "passport_id": user.passport_id,
                 "address": user.address,
                 "is_verified": user.is_verified,
+                "scanned_qr_code": user.scanned_qr_code,
+                "has_scanned_qr": bool(user.scanned_qr_code),
             }
         )
 
@@ -266,3 +270,76 @@ class LogoutAllDevicesAPIView(APIView):
             )
 
         return Response({"message": "Logged out from all other devices"})
+
+
+class UserRolesAPIView(APIView):
+    """
+    Get all available user roles
+    Returns list of roles with value, label and permissions
+    """
+
+    permission_classes = [AllowAny]
+
+    def get(self, request):
+        roles = [
+            {
+                "value": "super_admin",
+                "label": "Super Admin",
+                "description": "Tizimning eng yuqori darajadagi administratori",
+                "permissions": [
+                    "Barcha CRUD operatsiyalar",
+                    "Barcha regionlar, tumanlar, mahallalar",
+                    "Barcha QR kodlar va uylar",
+                    "Barcha userlarni boshqarish",
+                    "QR kod delivery statuslarini o'zgartirish",
+                ],
+                "level": 5,
+            },
+            {
+                "value": "government",
+                "label": "Government Officer",
+                "description": "Hukumat xodimi",
+                "permissions": [
+                    "Barcha regionlar, tumanlar, mahallalarni ko'rish va yaratish",
+                    "Barcha QR kodlar va uylarni ko'rish",
+                    "Ma'lumotlarni CREATE/UPDATE/DELETE",
+                ],
+                "level": 4,
+            },
+            {
+                "value": "mahalla_admin",
+                "label": "Neighborhood Admin",
+                "description": "Mahalla administratori",
+                "permissions": [
+                    "Faqat o'z mahallasidagi ma'lumotlarni ko'rish",
+                    "O'z mahallasida uylar yaratish",
+                    "QR kodlarni delivery statusini belgilash",
+                ],
+                "level": 3,
+            },
+            {
+                "value": "owner",
+                "label": "House Owner",
+                "description": "Uy egasi",
+                "permissions": [
+                    "O'z uyining ma'lumotlarini ko'rish",
+                    "O'z uyining QR kodini ko'rish",
+                    "Region/tuman/mahalla ma'lumotlarini ko'rish (GET only)",
+                ],
+                "level": 2,
+            },
+            {
+                "value": "user",
+                "label": "Regular User",
+                "description": "Oddiy foydalanuvchi",
+                "permissions": [
+                    "QR kod skanerlash",
+                    "House claim qilish (uy egasi bo'lish)",
+                    "Region/tuman/mahalla ma'lumotlarini ko'rish (GET only)",
+                ],
+                "level": 1,
+                "default": True,
+            },
+        ]
+
+        return Response({"count": len(roles), "roles": roles})

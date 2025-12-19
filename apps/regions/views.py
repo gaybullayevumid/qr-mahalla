@@ -56,9 +56,10 @@ class MahallaViewSet(ModelViewSet):
 
     def get_permissions(self):
         """
-        Allow regular users to read (GET), only admins can modify
+        Allow regular users to read (GET) and create (POST)
+        Only admins can update/delete
         """
-        if self.action in ['list', 'retrieve']:
+        if self.action in ['list', 'retrieve', 'create']:
             return [IsAuthenticated()]
         return [IsAdminOrGovernment()]
 

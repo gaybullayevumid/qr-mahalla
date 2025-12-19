@@ -1,5 +1,8 @@
+import logging
 import requests
 from django.conf import settings
+
+logger = logging.getLogger(__name__)
 
 
 def send_sms(phone, code):
@@ -35,25 +38,23 @@ This code will expire in 2 minutes.
                 response = requests.post(url, json=payload, timeout=5)
 
                 if response.status_code == 200:
-                    print(f"✅ Telegram message sent to chat {chat_id}: {code}")
+                    logger.info(f"Telegram message sent to chat {chat_id}: {code}")
                     success_count += 1
                 else:
-                    print(f"❌ Failed to send to chat {chat_id}: {response.text}")
+                    logger.error(f"Failed to send to chat {chat_id}: {response.text}")
 
             if success_count > 0:
-                print(
-                    f"✅ Code sent to {success_count}/{len(chat_ids)} chats for {phone}"
+                logger.info(
+                    f"Code sent to {success_count}/{len(chat_ids)} chats for {phone}"
                 )
                 return True
         else:
-            print(f"⚠️ TELEGRAM_CHAT_IDS not set. Code: {code} for {phone}")
-            print(f"📱 Send /start to bot: https://t.me/{bot_token.split(':')[0]}")
+            logger.warning(f"TELEGRAM_CHAT_IDS not set. Code: {code} for {phone}")
 
-        # Fallback: print to console
-        print(f"[SMS] {phone} -> Verification code: {code}")
+        logger.info(f"[SMS] {phone} -> Verification code: {code}")
         return False
 
     except Exception as e:
-        print(f"❌ Error sending Telegram message: {e}")
-        print(f"[SMS] {phone} -> Verification code: {code}")
+        logger.error(f"Error sending Telegram message: {e}")
+        logger.info(f"[SMS] {phone} -> Verification code: {code}")
         return False

@@ -1,5 +1,8 @@
+import logging
 from django.db.models.signals import post_save, pre_save
 from django.dispatch import receiver
+
+logger = logging.getLogger(__name__)
 
 from apps.houses.models import House
 from apps.regions.models import Mahalla
@@ -50,8 +53,8 @@ def maintain_unclaimed_houses(sender, instance, created, **kwargs):
                     owner=None,
                 )
 
-            print(
-                f"✅ Created {houses_needed} new unclaimed houses to maintain minimum of {MINIMUM_UNCLAIMED_HOUSES}"
+            logger.info(
+                f"Created {houses_needed} new unclaimed houses to maintain minimum of {MINIMUM_UNCLAIMED_HOUSES}"
             )
 
 
@@ -77,6 +80,6 @@ def auto_create_replacement_qr_on_delivery(sender, instance, **kwargs):
                     owner=None,
                 )
                 # Signal avtomatik QR code yaratadi
-                print(f"✅ Auto-created new house and QR code for {mahalla.name}")
+                logger.info(f"Auto-created new house and QR code for {mahalla.name}")
         except QRCode.DoesNotExist:
             pass

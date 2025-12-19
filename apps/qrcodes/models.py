@@ -12,6 +12,11 @@ from apps.houses.models import House
 class QRCode(models.Model):
     id = models.CharField(max_length=16, primary_key=True, editable=False)
 
+    # Numeric ID for easy reference (auto-incremented)
+    numeric_id = models.IntegerField(
+        unique=True, editable=False, null=True, blank=True, verbose_name="Numeric ID"
+    )
+
     house = models.OneToOneField(
         House, on_delete=models.CASCADE, related_name="qr_code", verbose_name="House"
     )
@@ -47,6 +52,14 @@ class QRCode(models.Model):
     def save(self, *args, **kwargs):
         if not self.id:
             self.id = uuid.uuid4().hex[:16]
+
+        # Auto-generate numeric_id if not set
+        if self.numeric_id is None:
+            last_qr = QRCode.objects.order_by("-numeric_id").first()
+            self.numeric_id = (
+                (last_qr.numeric_id + 1) if last_qr and last_qr.numeric_id else 1
+            )
+
         super().save(*args, **kwargs)
 
         if not self.image:

@@ -1,4 +1,5 @@
 from pathlib import Path
+import os
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -18,8 +19,10 @@ DEBUG = True
 ALLOWED_HOSTS = ["*"]
 
 # Telegram Bot Settings
-TELEGRAM_BOT_TOKEN = "8443848056:AAFSUPSsd4OusBcmC10KODDzxbRi3VfSwdY"
-TELEGRAM_CHAT_ID = None  # Will be set to user's chat ID when they send /start to bot
+TELEGRAM_BOT_TOKEN = os.getenv(
+    "TELEGRAM_BOT_TOKEN", "8443848056:AAFSUPSsd4OusBcmC10KODDzxbRi3VfSwdY"
+)
+TELEGRAM_CHAT_ID = os.getenv("8055309446", None)
 
 # https://qrmahalla.vercel.app/
 

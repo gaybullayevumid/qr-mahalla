@@ -17,6 +17,10 @@ DEBUG = True
 
 ALLOWED_HOSTS = ["*"]
 
+# Telegram Bot Settings
+TELEGRAM_BOT_TOKEN = "8443848056:AAFSUPSsd4OusBcmC10KODDzxbRi3VfSwdY"
+TELEGRAM_CHAT_ID = None  # Will be set to user's chat ID when they send /start to bot
+
 # https://qrmahalla.vercel.app/
 
 # Application definition

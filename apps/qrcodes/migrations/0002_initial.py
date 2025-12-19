@@ -10,20 +10,32 @@ class Migration(migrations.Migration):
     initial = True
 
     dependencies = [
-        ("scans", "0001_initial"),
+        ("houses", "0003_initial"),
+        ("qrcodes", "0001_initial"),
         migrations.swappable_dependency(settings.AUTH_USER_MODEL),
     ]
 
     operations = [
         migrations.AddField(
-            model_name="scanlog",
-            name="scanned_by",
+            model_name="qrcode",
+            name="delivered_by",
             field=models.ForeignKey(
                 blank=True,
                 null=True,
                 on_delete=django.db.models.deletion.SET_NULL,
+                related_name="delivered_qrcodes",
                 to=settings.AUTH_USER_MODEL,
-                verbose_name="Scanned by",
+                verbose_name="Delivered by",
+            ),
+        ),
+        migrations.AddField(
+            model_name="qrcode",
+            name="house",
+            field=models.OneToOneField(
+                on_delete=django.db.models.deletion.CASCADE,
+                related_name="qr_code",
+                to="houses.house",
+                verbose_name="House",
             ),
         ),
     ]

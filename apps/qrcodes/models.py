@@ -10,11 +10,10 @@ from apps.houses.models import House
 
 
 class QRCode(models.Model):
-    id = models.CharField(max_length=16, primary_key=True, editable=False)
+    id = models.AutoField(primary_key=True, verbose_name="ID")
 
-    # Numeric ID for easy reference (auto-incremented)
-    numeric_id = models.IntegerField(
-        unique=True, editable=False, null=True, blank=True, verbose_name="Numeric ID"
+    uuid = models.CharField(
+        max_length=16, unique=True, editable=False, verbose_name="UUID"
     )
 
     house = models.OneToOneField(
@@ -50,15 +49,8 @@ class QRCode(models.Model):
         ordering = ["-created_at"]
 
     def save(self, *args, **kwargs):
-        if not self.id:
-            self.id = uuid.uuid4().hex[:16]
-
-        # Auto-generate numeric_id if not set
-        if self.numeric_id is None:
-            last_qr = QRCode.objects.order_by("-numeric_id").first()
-            self.numeric_id = (
-                (last_qr.numeric_id + 1) if last_qr and last_qr.numeric_id else 1
-            )
+        if not self.uuid:
+            self.uuid = uuid.uuid4().hex[:16]
 
         super().save(*args, **kwargs)
 
@@ -66,11 +58,11 @@ class QRCode(models.Model):
             self.generate_qr_image()
 
     def generate_qr_image(self):
-        qr = qrcode.make(self.id)
+        qr = qrcode.make(self.uuid)
         buffer = BytesIO()
         qr.save(buffer, format="PNG")
 
-        self.image.save(f"{self.id}.png", File(buffer), save=True)
+        self.image.save(f"{self.uuid}.png", File(buffer), save=True)
 
     def __str__(self):
-        return self.id
+        return f"QR #{self.id} - {self.uuid}"

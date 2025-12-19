@@ -25,14 +25,14 @@ class QRCodeSerializer(serializers.ModelSerializer):
         model = QRCode
         fields = [
             "id",
-            "numeric_id",
+            "uuid",
             "image",
             "is_delivered",
             "created_at",
         ]
         read_only_fields = [
             "id",
-            "numeric_id",
+            "uuid",
             "image",
             "created_at",
             "is_delivered",

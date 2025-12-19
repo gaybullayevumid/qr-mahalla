@@ -6,6 +6,9 @@ from apps.regions.models import Mahalla
 from .models import QRCode
 
 
+MINIMUM_UNCLAIMED_HOUSES = 10  # Har doim 10 ta egasiz uy bo'lishi kerak
+
+
 @receiver(post_save, sender=House)
 def create_qr_code_for_house(sender, instance, created, **kwargs):
     """
@@ -14,6 +17,42 @@ def create_qr_code_for_house(sender, instance, created, **kwargs):
     """
     if created:
         QRCode.objects.create(house=instance)
+
+
+@receiver(post_save, sender=House)
+def maintain_unclaimed_houses(sender, instance, created, **kwargs):
+    """
+    House owner'ga berilganda, egasiz uylar sonini tekshiradi
+    va har doim 10 ta egasiz uy bo'lishini ta'minlaydi
+    """
+    # Agar uy yangi yaratilgan yoki owner o'zgarmagan bo'lsa, hech narsa qilmaydi
+    if created:
+        return
+
+    # Agar house ga owner berilgan bo'lsa
+    if instance.owner:
+        # Egasiz uylar sonini tekshirish
+        unclaimed_count = House.objects.filter(owner__isnull=True).count()
+
+        # Agar 10 dan kam bo'lsa, yangi uylar yaratish
+        if unclaimed_count < MINIMUM_UNCLAIMED_HOUSES:
+            houses_needed = MINIMUM_UNCLAIMED_HOUSES - unclaimed_count
+
+            # Oxirgi uyning mahalla'sidan yangi uylar yaratish
+            mahalla = instance.mahalla
+
+            for i in range(houses_needed):
+                house_count = House.objects.filter(mahalla=mahalla).count()
+                House.objects.create(
+                    mahalla=mahalla,
+                    address=f"{mahalla.name}, avtomatik yaratilgan uy",
+                    house_number=f"AUTO-{house_count + i + 1}",
+                    owner=None,
+                )
+
+            print(
+                f"✅ Created {houses_needed} new unclaimed houses to maintain minimum of {MINIMUM_UNCLAIMED_HOUSES}"
+            )
 
 
 @receiver(pre_save, sender=QRCode)

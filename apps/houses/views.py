@@ -7,7 +7,15 @@ from .permissions import HouseAccessPermission
 
 
 class HouseViewSet(ModelViewSet):
-    permission_classes = [IsAuthenticated, HouseAccessPermission]
+    permission_classes = [IsAuthenticated]
+
+    def get_permissions(self):
+        """
+        Allow regular users to read (GET), only admins/owners can modify
+        """
+        if self.action in ['list', 'retrieve']:
+            return [IsAuthenticated()]
+        return [IsAuthenticated(), HouseAccessPermission()]
 
     def get_serializer_class(self):
         if self.action in ["create", "update", "partial_update"]:

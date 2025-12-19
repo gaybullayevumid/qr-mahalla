@@ -134,6 +134,10 @@ class QRCodeListAPIView(generics.ListAPIView):
         if not user.is_authenticated or not hasattr(user, "role"):
             return queryset.none()
 
+        # Regular users can see only unclaimed QR codes
+        if user.role == "user":
+            return queryset.filter(house__owner__isnull=True)
+
         # Filter based on user role
         if user.role == "owner":
             # Owner can see only their houses' QR codes
@@ -141,6 +145,9 @@ class QRCodeListAPIView(generics.ListAPIView):
         elif user.role == "mahalla_admin":
             # Neighborhood admin can see only their neighborhood's QR codes
             queryset = queryset.filter(house__mahalla=user.mahalla)
+        # super_admin, government can see all QR codes
+
+        return queryset
         # super_admin, government can see all QR codes
 
         return queryset

@@ -17,3 +17,14 @@ class IsMahallaAdmin(BasePermission):
             and hasattr(request.user, "role")
             and request.user.role == "mahalla_admin"
         )
+
+
+class IsAdminOrGovernment(BasePermission):
+    """Only super_admin, mahalla_admin, and government can access"""
+
+    def has_permission(self, request, view):
+        return (
+            request.user.is_authenticated
+            and hasattr(request.user, "role")
+            and request.user.role in ["super_admin", "mahalla_admin", "government"]
+        )

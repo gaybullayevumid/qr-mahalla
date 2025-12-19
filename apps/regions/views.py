@@ -13,12 +13,12 @@ from .serializers import (
     MahallaSerializer,
     MahallaCreateSerializer,
 )
-from .permissions import IsSuperAdmin
+from .permissions import IsSuperAdmin, IsAdminOrGovernment
 
 
 class RegionViewSet(ModelViewSet):
     queryset = Region.objects.prefetch_related("districts__mahallas__admin").all()
-    permission_classes = [AllowAny]  # Temporarily disabled for testing
+    permission_classes = [IsAdminOrGovernment]
 
     def get_serializer_class(self):
         if self.action in ["create", "update", "partial_update"]:
@@ -29,7 +29,7 @@ class RegionViewSet(ModelViewSet):
 
 class DistrictViewSet(ModelViewSet):
     queryset = District.objects.select_related("region").all()
-    permission_classes = [AllowAny]  # Temporarily disabled for testing
+    permission_classes = [IsAdminOrGovernment]
 
     def get_serializer_class(self):
         if self.action in ["create", "update", "partial_update"]:
@@ -51,7 +51,7 @@ class DistrictViewSet(ModelViewSet):
 
 class MahallaViewSet(ModelViewSet):
     queryset = Mahalla.objects.select_related("district", "admin").all()
-    permission_classes = [AllowAny]  # Temporarily disabled for testing
+    permission_classes = [IsAdminOrGovernment]
 
     def get_serializer_class(self):
         if self.action in ["create", "update", "partial_update"]:

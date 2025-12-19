@@ -5,6 +5,8 @@ from .views import (
     QRCodeCreateAPIView,
     QRCodeDetailAPIView,
     QRCodeClaimAPIView,
+    QRCodeMarkDeliveredAPIView,
+    QRCodeUnmarkDeliveredAPIView,
 )
 
 urlpatterns = [
@@ -13,4 +15,14 @@ urlpatterns = [
     path("<str:qr_id>/", QRCodeDetailAPIView.as_view(), name="qrcode-detail"),
     path("scan/<str:qr_id>/", QRScanAPIView.as_view(), name="qrcode-scan"),
     path("claim/<str:qr_id>/", QRCodeClaimAPIView.as_view(), name="qrcode-claim"),
+    path(
+        "mark-delivered/",
+        QRCodeMarkDeliveredAPIView.as_view(),
+        name="qrcode-mark-delivered",
+    ),
+    path(
+        "unmark-delivered/",
+        QRCodeUnmarkDeliveredAPIView.as_view(),
+        name="qrcode-unmark-delivered",
+    ),
 ]

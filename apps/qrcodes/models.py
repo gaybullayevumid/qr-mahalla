@@ -4,6 +4,7 @@ from io import BytesIO
 
 from django.db import models
 from django.core.files import File
+from django.conf import settings
 
 from apps.houses.models import House
 
@@ -17,6 +18,23 @@ class QRCode(models.Model):
 
     image = models.ImageField(
         upload_to="qr_codes/", blank=True, null=True, verbose_name="QR code image"
+    )
+
+    is_delivered = models.BooleanField(
+        default=False, verbose_name="Is delivered to house owner"
+    )
+
+    delivered_at = models.DateTimeField(
+        null=True, blank=True, verbose_name="Delivered at"
+    )
+
+    delivered_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="delivered_qrcodes",
+        verbose_name="Delivered by",
     )
 
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Created at")

@@ -2,13 +2,19 @@ from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated
 from rest_framework import generics, status
+from django.utils import timezone
 
 from apps.qrcodes.models import QRCode
 from apps.scans.models import ScanLog
 from apps.houses.models import House
 
 from .services import get_client_ip
-from .serializers import QRCodeSerializer, QRCodeCreateSerializer, QRCodeClaimSerializer
+from .serializers import (
+    QRCodeSerializer,
+    QRCodeCreateSerializer,
+    QRCodeClaimSerializer,
+    QRCodeDeliverySerializer,
+)
 
 
 class QRScanAPIView(APIView):
@@ -223,6 +229,131 @@ class QRCodeClaimAPIView(APIView):
                     "phone": user.phone,
                     "first_name": user.first_name,
                     "last_name": user.last_name,
+                },
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class QRCodeMarkDeliveredAPIView(APIView):
+    """
+    Mark QR code as delivered to house owner
+    Only super_admin and mahalla_admin can mark as delivered
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+
+        # Check if user has permission (only super_admin and mahalla_admin)
+        if user.role not in ["super_admin", "mahalla_admin"]:
+            return Response(
+                {"error": "Only admins can mark QR codes as delivered"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        serializer = QRCodeDeliverySerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        qr_id = serializer.validated_data["qr_id"]
+
+        try:
+            qr = QRCode.objects.get(id=qr_id)
+        except QRCode.DoesNotExist:
+            return Response(
+                {"error": "QR code not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Check if already delivered
+        if qr.is_delivered:
+            return Response(
+                {
+                    "error": "QR code already marked as delivered",
+                    "delivered_at": qr.delivered_at,
+                    "delivered_by": (
+                        f"{qr.delivered_by.first_name} {qr.delivered_by.last_name}"
+                        if qr.delivered_by
+                        else None
+                    ),
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Mark as delivered
+        qr.is_delivered = True
+        qr.delivered_at = timezone.now()
+        qr.delivered_by = user
+        qr.save()
+
+        return Response(
+            {
+                "message": "QR code marked as delivered successfully",
+                "qr_code": {
+                    "id": qr.id,
+                    "house_address": qr.house.address,
+                    "is_delivered": qr.is_delivered,
+                    "delivered_at": qr.delivered_at,
+                    "delivered_by": f"{user.first_name} {user.last_name}".strip()
+                    or user.phone,
+                },
+            },
+            status=status.HTTP_200_OK,
+        )
+
+
+class QRCodeUnmarkDeliveredAPIView(APIView):
+    """
+    Unmark QR code delivery (in case of mistake)
+    Only super_admin can unmark
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        user = request.user
+
+        # Only super_admin can unmark
+        if user.role != "super_admin":
+            return Response(
+                {"error": "Only super admin can unmark delivery"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        serializer = QRCodeDeliverySerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        qr_id = serializer.validated_data["qr_id"]
+
+        try:
+            qr = QRCode.objects.get(id=qr_id)
+        except QRCode.DoesNotExist:
+            return Response(
+                {"error": "QR code not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Check if not delivered
+        if not qr.is_delivered:
+            return Response(
+                {"error": "QR code is not marked as delivered"},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Unmark delivery
+        qr.is_delivered = False
+        qr.delivered_at = None
+        qr.delivered_by = None
+        qr.save()
+
+        return Response(
+            {
+                "message": "QR code delivery status removed successfully",
+                "qr_code": {
+                    "id": qr.id,
+                    "house_address": qr.house.address,
+                    "is_delivered": qr.is_delivered,
                 },
             },
             status=status.HTTP_200_OK,

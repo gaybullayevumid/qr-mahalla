@@ -37,7 +37,11 @@ class QRScanAPIView(APIView):
             return Response(
                 {
                     "status": "unclaimed",
+                    "is_claimed": False,
+                    "can_claim": True,
                     "message": "This house has no owner yet",
+                    "qr_id": qr.id,
+                    "claim_url": f"/api/qrcode/claim/{qr.id}/",
                     "house_address": qr.house.address,
                     "mahalla": qr.house.mahalla.name,
                     "district": qr.house.mahalla.district.name,
@@ -61,6 +65,8 @@ class QRScanAPIView(APIView):
             return Response(
                 {
                     "status": "claimed",
+                    "is_claimed": True,
+                    "can_claim": False,
                     "first_name": owner.first_name,
                     "last_name": owner.last_name,
                     "phone": owner.phone,
@@ -75,6 +81,8 @@ class QRScanAPIView(APIView):
             return Response(
                 {
                     "status": "claimed",
+                    "is_claimed": True,
+                    "can_claim": False,
                     "first_name": owner.first_name,
                     "last_name": owner.last_name,
                     "phone": owner.phone,
@@ -91,6 +99,8 @@ class QRScanAPIView(APIView):
             return Response(
                 {
                     "status": "claimed",
+                    "is_claimed": True,
+                    "can_claim": False,
                     "first_name": owner.first_name,
                     "last_name": owner.last_name,
                     "phone": owner.phone,

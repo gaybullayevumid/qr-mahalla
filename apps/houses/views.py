@@ -20,9 +20,9 @@ class HouseViewSet(ModelViewSet):
         if not user.is_authenticated or not hasattr(user, "role"):
             return House.objects.none()
 
-        # Regular users (role='user') cannot access houses at all
+        # Regular users can see houses in their mahalla (but cannot modify)
         if user.role == "user":
-            return House.objects.none()
+            return House.objects.all()
 
         if user.role == "super_admin":
             return House.objects.all()

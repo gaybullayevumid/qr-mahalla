@@ -21,9 +21,8 @@ class RegionViewSet(ModelViewSet):
     def get_serializer_class(self):
         if self.action in ["create", "update", "partial_update"]:
             return RegionCreateSerializer
-        elif self.action == "retrieve":
-            return RegionDetailSerializer
-        return RegionSerializer
+        # Use detailed serializer for both list and retrieve
+        return RegionDetailSerializer
 
 
 class DistrictViewSet(ModelViewSet):

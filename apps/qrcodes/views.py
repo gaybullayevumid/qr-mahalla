@@ -23,7 +23,11 @@ class QRScanAPIView(APIView):
     def get(self, request, qr_id):
         try:
             qr = QRCode.objects.select_related(
-                "house", "house__owner", "house__mahalla"
+                "house",
+                "house__owner",
+                "house__mahalla",
+                "house__mahalla__district",
+                "house__mahalla__district__region",
             ).get(id=qr_id)
         except QRCode.DoesNotExist:
             return Response({"error": "QR code not found"}, status=404)
@@ -36,6 +40,8 @@ class QRScanAPIView(APIView):
                     "message": "This house has no owner yet",
                     "house_address": qr.house.address,
                     "mahalla": qr.house.mahalla.name,
+                    "district": qr.house.mahalla.district.name,
+                    "region": qr.house.mahalla.district.region.name,
                     "house_number": qr.house.house_number,
                 },
                 status=200,
@@ -58,6 +64,10 @@ class QRScanAPIView(APIView):
                     "first_name": owner.first_name,
                     "last_name": owner.last_name,
                     "phone": owner.phone,
+                    "house_address": qr.house.address,
+                    "mahalla": qr.house.mahalla.name,
+                    "district": qr.house.mahalla.district.name,
+                    "region": qr.house.mahalla.district.region.name,
                 }
             )
 
@@ -72,6 +82,8 @@ class QRScanAPIView(APIView):
                     "address": owner.address,
                     "house_address": qr.house.address,
                     "mahalla": qr.house.mahalla.name,
+                    "district": qr.house.mahalla.district.name,
+                    "region": qr.house.mahalla.district.region.name,
                 }
             )
 
@@ -86,6 +98,8 @@ class QRScanAPIView(APIView):
                     "address": owner.address,
                     "house_address": qr.house.address,
                     "mahalla": qr.house.mahalla.name,
+                    "district": qr.house.mahalla.district.name,
+                    "region": qr.house.mahalla.district.region.name,
                 }
             )
 

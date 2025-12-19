@@ -43,10 +43,19 @@ class QRScanAPIView(APIView):
                     "qr_id": qr.id,
                     "claim_url": f"/api/qrcode/claim/{qr.id}/",
                     "house_address": qr.house.address,
-                    "mahalla": qr.house.mahalla.name,
-                    "district": qr.house.mahalla.district.name,
-                    "region": qr.house.mahalla.district.region.name,
                     "house_number": qr.house.house_number,
+                    "region": {
+                        "id": qr.house.mahalla.district.region.id,
+                        "name": qr.house.mahalla.district.region.name,
+                    },
+                    "district": {
+                        "id": qr.house.mahalla.district.id,
+                        "name": qr.house.mahalla.district.name,
+                    },
+                    "mahalla": {
+                        "id": qr.house.mahalla.id,
+                        "name": qr.house.mahalla.name,
+                    },
                 },
                 status=200,
             )
@@ -71,9 +80,18 @@ class QRScanAPIView(APIView):
                     "last_name": owner.last_name,
                     "phone": owner.phone,
                     "house_address": qr.house.address,
-                    "mahalla": qr.house.mahalla.name,
-                    "district": qr.house.mahalla.district.name,
-                    "region": qr.house.mahalla.district.region.name,
+                    "region": {
+                        "id": qr.house.mahalla.district.region.id,
+                        "name": qr.house.mahalla.district.region.name,
+                    },
+                    "district": {
+                        "id": qr.house.mahalla.district.id,
+                        "name": qr.house.mahalla.district.name,
+                    },
+                    "mahalla": {
+                        "id": qr.house.mahalla.id,
+                        "name": qr.house.mahalla.name,
+                    },
                 }
             )
 
@@ -89,9 +107,18 @@ class QRScanAPIView(APIView):
                     "passport_id": owner.passport_id,
                     "address": owner.address,
                     "house_address": qr.house.address,
-                    "mahalla": qr.house.mahalla.name,
-                    "district": qr.house.mahalla.district.name,
-                    "region": qr.house.mahalla.district.region.name,
+                    "region": {
+                        "id": qr.house.mahalla.district.region.id,
+                        "name": qr.house.mahalla.district.region.name,
+                    },
+                    "district": {
+                        "id": qr.house.mahalla.district.id,
+                        "name": qr.house.mahalla.district.name,
+                    },
+                    "mahalla": {
+                        "id": qr.house.mahalla.id,
+                        "name": qr.house.mahalla.name,
+                    },
                 }
             )
 
@@ -107,9 +134,18 @@ class QRScanAPIView(APIView):
                     "passport_id": owner.passport_id,
                     "address": owner.address,
                     "house_address": qr.house.address,
-                    "mahalla": qr.house.mahalla.name,
-                    "district": qr.house.mahalla.district.name,
-                    "region": qr.house.mahalla.district.region.name,
+                    "region": {
+                        "id": qr.house.mahalla.district.region.id,
+                        "name": qr.house.mahalla.district.region.name,
+                    },
+                    "district": {
+                        "id": qr.house.mahalla.district.id,
+                        "name": qr.house.mahalla.district.name,
+                    },
+                    "mahalla": {
+                        "id": qr.house.mahalla.id,
+                        "name": qr.house.mahalla.name,
+                    },
                 }
             )
 
@@ -426,10 +462,19 @@ class QRScanByUUIDAPIView(APIView):
                     "uuid": qr.uuid,
                     "claim_url": f"/api/qrcodes/claim-uuid/{qr.uuid}/",
                     "house_address": qr.house.address,
-                    "mahalla": qr.house.mahalla.name,
-                    "district": qr.house.mahalla.district.name,
-                    "region": qr.house.mahalla.district.region.name,
                     "house_number": qr.house.house_number,
+                    "region": {
+                        "id": qr.house.mahalla.district.region.id,
+                        "name": qr.house.mahalla.district.region.name,
+                    },
+                    "district": {
+                        "id": qr.house.mahalla.district.id,
+                        "name": qr.house.mahalla.district.name,
+                    },
+                    "mahalla": {
+                        "id": qr.house.mahalla.id,
+                        "name": qr.house.mahalla.name,
+                    },
                 },
                 status=status.HTTP_200_OK,
             )
@@ -459,9 +504,18 @@ class QRScanByUUIDAPIView(APIView):
                     "last_name": owner.last_name,
                     "phone": owner.phone,
                     "house_address": qr.house.address,
-                    "mahalla": qr.house.mahalla.name,
-                    "district": qr.house.mahalla.district.name,
-                    "region": qr.house.mahalla.district.region.name,
+                    "region": {
+                        "id": qr.house.mahalla.district.region.id,
+                        "name": qr.house.mahalla.district.region.name,
+                    },
+                    "district": {
+                        "id": qr.house.mahalla.district.id,
+                        "name": qr.house.mahalla.district.name,
+                    },
+                    "mahalla": {
+                        "id": qr.house.mahalla.id,
+                        "name": qr.house.mahalla.name,
+                    },
                 }
             )
 
@@ -495,9 +549,18 @@ class QRScanByUUIDAPIView(APIView):
                     "passport_id": owner.passport_id,
                     "address": owner.address,
                     "house_address": qr.house.address,
-                    "mahalla": qr.house.mahalla.name,
-                    "district": qr.house.mahalla.district.name,
-                    "region": qr.house.mahalla.district.region.name,
+                    "region": {
+                        "id": qr.house.mahalla.district.region.id,
+                        "name": qr.house.mahalla.district.region.name,
+                    },
+                    "district": {
+                        "id": qr.house.mahalla.district.id,
+                        "name": qr.house.mahalla.district.name,
+                    },
+                    "mahalla": {
+                        "id": qr.house.mahalla.id,
+                        "name": qr.house.mahalla.name,
+                    },
                 }
             )
 

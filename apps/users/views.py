@@ -43,8 +43,8 @@ class AuthAPIView(APIView):
 
         # If no code provided → send SMS
         if not code:
-            # Create or get user
-            user, created = User.objects.get_or_create(phone=phone)
+            # Don't create user yet - only create after SMS verification
+            # Just generate and send OTP
 
             # Invalidate old codes
             PhoneOTP.objects.filter(phone=phone, is_used=False).update(is_used=True)
@@ -57,7 +57,11 @@ class AuthAPIView(APIView):
             try:
                 send_sms(phone, new_code)
                 return Response(
-                    {"message": "SMS code sent", "phone": phone},
+                    {
+                        "message": "SMS code sent",
+                        "phone": phone,
+                        "detail": "Please verify your phone number with the code sent via SMS",
+                    },
                     status=status.HTTP_200_OK,
                 )
             except Exception as e:
@@ -72,16 +76,7 @@ class AuthAPIView(APIView):
             phone = phone.strip()
             code = code.strip()
 
-            # Check if user exists
-            try:
-                user = User.objects.get(phone=phone)
-            except User.DoesNotExist:
-                return Response(
-                    {"error": "User not found"},
-                    status=status.HTTP_404_NOT_FOUND,
-                )
-
-            # Check OTP code
+            # Check OTP code first (before checking user)
             otp = (
                 PhoneOTP.objects.filter(phone=phone, code=code, is_used=False)
                 .order_by("-created_at")
@@ -116,9 +111,19 @@ class AuthAPIView(APIView):
             otp.is_used = True
             otp.save()
 
-            # Verify user
-            user.is_verified = True
-            user.save()
+            # Create user if doesn't exist (SMS kod tasdiqlangandan keyin)
+            user, created = User.objects.get_or_create(
+                phone=phone,
+                defaults={
+                    "is_verified": True,
+                    "role": "user",
+                },
+            )
+
+            # If user already exists, just verify them
+            if not created:
+                user.is_verified = True
+                user.save()
 
             # Get device info from request
             device_id = request.data.get("device_id", "unknown")

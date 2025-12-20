@@ -6,14 +6,29 @@ class QRCodeSerializer(serializers.ModelSerializer):
     """QR code serializer with basic information"""
 
     is_claimed = serializers.SerializerMethodField()
+    owner = serializers.SerializerMethodField()
 
     class Meta:
         model = QRCode
-        fields = ["id", "uuid", "image", "is_claimed", "created_at"]
+        fields = ["id", "uuid", "image", "is_claimed", "owner", "created_at"]
         read_only_fields = ["id", "uuid", "image", "created_at"]
 
     def get_is_claimed(self, obj):
         return obj.house.owner is not None
+
+    def get_owner(self, obj):
+        """Return owner information if house is claimed"""
+        if obj.house.owner:
+            return {
+                "id": obj.house.owner.id,
+                "phone": obj.house.owner.phone,
+                "first_name": obj.house.owner.first_name,
+                "last_name": obj.house.owner.last_name,
+                "passport_id": obj.house.owner.passport_id,
+                "address": obj.house.owner.address,
+                "role": obj.house.owner.role,
+            }
+        return None
 
 
 class QRCodeCreateSerializer(serializers.ModelSerializer):

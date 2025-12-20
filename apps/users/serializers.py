@@ -19,6 +19,7 @@ class UserListSerializer(serializers.ModelSerializer):
             "address",
             "role",
             "is_verified",
+            "scanned_qr_code",
             "houses",
         )
         read_only_fields = ("id",)

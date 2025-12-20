@@ -4,13 +4,14 @@ from io import BytesIO
 
 from django.db import models
 from django.core.files import File
-from django.conf import settings
 
 from apps.houses.models import House
 from apps.utils import GapFillingIDMixin
 
 
 class QRCode(GapFillingIDMixin, models.Model):
+    """QR code for house identification and ownership claiming"""
+
     uuid = models.CharField(
         max_length=16, unique=True, editable=False, verbose_name="UUID"
     )
@@ -21,23 +22,6 @@ class QRCode(GapFillingIDMixin, models.Model):
 
     image = models.ImageField(
         upload_to="qr_codes/", blank=True, null=True, verbose_name="QR code image"
-    )
-
-    is_delivered = models.BooleanField(
-        default=False, verbose_name="Is delivered to house owner"
-    )
-
-    delivered_at = models.DateTimeField(
-        null=True, blank=True, verbose_name="Delivered at"
-    )
-
-    delivered_by = models.ForeignKey(
-        settings.AUTH_USER_MODEL,
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name="delivered_qrcodes",
-        verbose_name="Delivered by",
     )
 
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Created at")
@@ -57,10 +41,10 @@ class QRCode(GapFillingIDMixin, models.Model):
             self.generate_qr_image()
 
     def generate_qr_image(self):
+        """Generate QR code image from UUID"""
         qr = qrcode.make(self.uuid)
         buffer = BytesIO()
         qr.save(buffer, format="PNG")
-
         self.image.save(f"{self.uuid}.png", File(buffer), save=True)
 
     def __str__(self):

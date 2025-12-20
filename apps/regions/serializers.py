@@ -62,11 +62,13 @@ class DistrictCreateSerializer(serializers.ModelSerializer):
 class DistrictNestedSerializer(serializers.ModelSerializer):
     """District nested serializer - inside region with neighborhoods"""
 
-    mahallas = MahallaNestedSerializer(many=True, read_only=True)
+    neighborhoods = MahallaNestedSerializer(
+        many=True, read_only=True, source="mahallas"
+    )
 
     class Meta:
         model = District
-        fields = ("id", "name", "mahallas")
+        fields = ("id", "name", "neighborhoods")
 
 
 class RegionSerializer(serializers.ModelSerializer):

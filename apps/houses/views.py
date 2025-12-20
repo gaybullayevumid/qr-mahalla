@@ -7,14 +7,13 @@ from .permissions import HouseAccessPermission
 
 
 class HouseViewSet(ModelViewSet):
+    """CRUD operations for houses"""
+
     permission_classes = [IsAuthenticated]
 
     def get_permissions(self):
-        """
-        Allow regular users to read (GET) and create (POST)
-        Only admins/owners can update/delete
-        """
-        if self.action in ['list', 'retrieve', 'create']:
+        """Allow read and create for all, update/delete for admins only"""
+        if self.action in ["list", "retrieve", "create"]:
             return [IsAuthenticated()]
         return [IsAuthenticated(), HouseAccessPermission()]
 
@@ -25,24 +24,24 @@ class HouseViewSet(ModelViewSet):
 
     def get_queryset(self):
         user = self.request.user
+        role = getattr(user, "role", None)
 
-        if not user.is_authenticated or not hasattr(user, "role"):
+        if not role:
             return House.objects.none()
 
-        # Regular users can see houses in their mahalla (but cannot modify)
-        if user.role == "user":
-            return House.objects.all()
+        queryset = House.objects.select_related("owner", "mahalla__district__region")
 
-        if user.role == "super_admin":
-            return House.objects.all()
+        # Regular users see all houses (read-only)
+        if role == "user":
+            return queryset
 
-        if user.role == "mahalla_admin" and hasattr(user, "mahalla"):
-            return House.objects.filter(mahalla=user.mahalla)
+        # Owner sees their own houses
+        if role == "owner":
+            return queryset.filter(owner=user)
 
-        if user.role == "owner":
-            return House.objects.filter(owner=user)
+        # Mahalla admin sees their neighborhood
+        if role == "mahalla_admin" and hasattr(user, "mahalla"):
+            return queryset.filter(mahalla=user.mahalla)
 
-        if user.role == "government":
-            return House.objects.all()
-
-        return House.objects.none()
+        # Super admin and government see all
+        return queryset

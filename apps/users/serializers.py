@@ -1,5 +1,46 @@
 from rest_framework import serializers
 import re
+from .models import User
+
+
+class UserListSerializer(serializers.ModelSerializer):
+    """User list serializer with houses"""
+
+    houses = serializers.SerializerMethodField()
+
+    class Meta:
+        model = User
+        fields = (
+            "id",
+            "phone",
+            "first_name",
+            "last_name",
+            "passport_id",
+            "address",
+            "role",
+            "is_verified",
+            "houses",
+        )
+        read_only_fields = ("id",)
+
+    def get_houses(self, obj):
+        """Get all houses owned by this user"""
+        from apps.houses.models import House
+
+        houses = House.objects.filter(owner=obj).select_related(
+            "mahalla__district__region"
+        )
+        return [
+            {
+                "id": house.id,
+                "address": house.address,
+                "house_number": house.house_number,
+                "mahalla": house.mahalla.name,
+                "district": house.mahalla.district.name,
+                "region": house.mahalla.district.region.name,
+            }
+            for house in houses
+        ]
 
 
 class AuthSerializer(serializers.Serializer):

@@ -1,13 +1,15 @@
 from rest_framework.views import APIView
+from rest_framework.viewsets import ReadOnlyModelViewSet
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.conf import settings
 
 from rest_framework_simplejwt.tokens import RefreshToken
+from rest_framework_simplejwt.views import TokenRefreshView as BaseTokenRefreshView
 
 from .models import User, PhoneOTP, UserSession
-from .serializers import AuthSerializer
+from .serializers import AuthSerializer, UserListSerializer
 from .services import send_sms
 
 
@@ -168,6 +170,7 @@ class UserProfileAPIView(APIView):
     """
 
     permission_classes = [IsAuthenticated]
+    schema = None
 
     def get(self, request):
         user = request.user
@@ -199,6 +202,7 @@ class UserSessionsAPIView(APIView):
     """
 
     permission_classes = [IsAuthenticated]
+    schema = None
 
     def get(self, request):
         sessions = UserSession.objects.filter(
@@ -227,6 +231,7 @@ class LogoutDeviceAPIView(APIView):
     """
 
     permission_classes = [IsAuthenticated]
+    schema = None
 
     def post(self, request):
         device_id = request.data.get("device_id")
@@ -254,6 +259,7 @@ class LogoutAllDevicesAPIView(APIView):
     """
 
     permission_classes = [IsAuthenticated]
+    schema = None
 
     def post(self, request):
         current_device_id = request.data.get("device_id")
@@ -279,6 +285,7 @@ class UserRolesAPIView(APIView):
     """
 
     permission_classes = [AllowAny]
+    schema = None
 
     def get(self, request):
         roles = [
@@ -343,3 +350,17 @@ class UserRolesAPIView(APIView):
         ]
 
         return Response({"count": len(roles), "roles": roles})
+
+
+class CustomTokenRefreshView(BaseTokenRefreshView):
+    """Custom token refresh view hidden from Swagger"""
+
+    schema = None
+
+
+class UserViewSet(ReadOnlyModelViewSet):
+    """Read-only viewset for listing and retrieving users with their houses"""
+
+    queryset = User.objects.prefetch_related("houses__mahalla__district__region").all()
+    serializer_class = UserListSerializer
+    permission_classes = [IsAuthenticated]

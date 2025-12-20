@@ -1,5 +1,5 @@
-from django.urls import path
-from rest_framework_simplejwt.views import TokenRefreshView
+from django.urls import path, include
+from rest_framework.routers import DefaultRouter
 from .views import (
     UserProfileAPIView,
     AuthAPIView,
@@ -7,7 +7,12 @@ from .views import (
     LogoutDeviceAPIView,
     LogoutAllDevicesAPIView,
     UserRolesAPIView,
+    CustomTokenRefreshView,
+    UserViewSet,
 )
+
+router = DefaultRouter()
+router.register("list", UserViewSet, basename="user")
 
 urlpatterns = [
     path("auth/", AuthAPIView.as_view(), name="auth"),
@@ -16,5 +21,6 @@ urlpatterns = [
     path("sessions/", UserSessionsAPIView.as_view(), name="sessions"),
     path("logout-device/", LogoutDeviceAPIView.as_view(), name="logout-device"),
     path("logout-all/", LogoutAllDevicesAPIView.as_view(), name="logout-all"),
-    path("token/refresh/", TokenRefreshView.as_view(), name="token_refresh"),
+    path("token/refresh/", CustomTokenRefreshView.as_view(), name="token_refresh"),
+    path("", include(router.urls)),
 ]

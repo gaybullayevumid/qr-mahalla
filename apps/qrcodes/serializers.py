@@ -17,17 +17,9 @@ class QRCodeSerializer(serializers.ModelSerializer):
         return obj.house.owner is not None
 
     def get_owner(self, obj):
-        """Return owner information if house is claimed"""
+        """Return owner ID if house is claimed"""
         if obj.house.owner:
-            return {
-                "id": obj.house.owner.id,
-                "phone": obj.house.owner.phone,
-                "first_name": obj.house.owner.first_name,
-                "last_name": obj.house.owner.last_name,
-                "passport_id": obj.house.owner.passport_id,
-                "address": obj.house.owner.address,
-                "role": obj.house.owner.role,
-            }
+            return obj.house.owner.id
         return None
 
 

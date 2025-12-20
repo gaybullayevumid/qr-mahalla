@@ -31,7 +31,7 @@ class HouseViewSet(ModelViewSet):
 
         queryset = House.objects.select_related("owner", "mahalla__district__region")
 
-        # Regular users see all houses (read-only)
+        # Users see all houses (read-only)
         if role == "user":
             return queryset
 

@@ -23,7 +23,7 @@ class RegionViewSet(ModelViewSet):
 
     def get_permissions(self):
         """
-        Allow regular users to read (GET), only admins can modify
+        Allow users to read (GET), only admins can modify
         """
         if self.action in ["list", "retrieve"]:
             return [IsAuthenticated()]
@@ -41,7 +41,7 @@ class DistrictViewSet(ModelViewSet):
 
     def get_permissions(self):
         """
-        Allow regular users to read (GET), only admins can modify
+        Allow users to read (GET), only admins can modify
         """
         if self.action in ["list", "retrieve"]:
             return [IsAuthenticated()]

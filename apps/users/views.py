@@ -152,26 +152,21 @@ class AuthAPIView(APIView):
                 {
                     "value": "super_admin",
                     "label": "Super Admin",
-                    "level": 5,
+                    "level": 4,
                 },
                 {
                     "value": "government",
                     "label": "Government Officer",
-                    "level": 4,
+                    "level": 3,
                 },
                 {
                     "value": "mahalla_admin",
                     "label": "Neighborhood Admin",
-                    "level": 3,
-                },
-                {
-                    "value": "owner",
-                    "label": "House Owner",
                     "level": 2,
                 },
                 {
                     "value": "user",
-                    "label": "Regular User",
+                    "label": "User",
                     "level": 1,
                 },
             ]
@@ -328,9 +323,8 @@ class UserRolesAPIView(APIView):
                     "Barcha regionlar, tumanlar, mahallalar",
                     "Barcha QR kodlar va uylar",
                     "Barcha userlarni boshqarish",
-                    "QR kod delivery statuslarini o'zgartirish",
                 ],
-                "level": 5,
+                "level": 4,
             },
             {
                 "value": "government",
@@ -341,7 +335,7 @@ class UserRolesAPIView(APIView):
                     "Barcha QR kodlar va uylarni ko'rish",
                     "Ma'lumotlarni CREATE/UPDATE/DELETE",
                 ],
-                "level": 4,
+                "level": 3,
             },
             {
                 "value": "mahalla_admin",
@@ -350,28 +344,17 @@ class UserRolesAPIView(APIView):
                 "permissions": [
                     "Faqat o'z mahallasidagi ma'lumotlarni ko'rish",
                     "O'z mahallasida uylar yaratish",
-                    "QR kodlarni delivery statusini belgilash",
-                ],
-                "level": 3,
-            },
-            {
-                "value": "owner",
-                "label": "House Owner",
-                "description": "Uy egasi",
-                "permissions": [
-                    "O'z uyining ma'lumotlarini ko'rish",
-                    "O'z uyining QR kodini ko'rish",
-                    "Region/tuman/mahalla ma'lumotlarini ko'rish (GET only)",
                 ],
                 "level": 2,
             },
             {
                 "value": "user",
-                "label": "Regular User",
-                "description": "Oddiy foydalanuvchi",
+                "label": "User",
+                "description": "Oddiy foydalanuvchi va uy egasi",
                 "permissions": [
                     "QR kod skanerlash",
                     "House claim qilish (uy egasi bo'lish)",
+                    "O'z uyining ma'lumotlarini ko'rish",
                     "Region/tuman/mahalla ma'lumotlarini ko'rish (GET only)",
                 ],
                 "level": 1,

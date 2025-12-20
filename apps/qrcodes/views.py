@@ -95,7 +95,6 @@ class ScanQRCodeView(APIView):
         # Determine access level based on user role
         user_role = getattr(request.user, "role", "user")
         include_private = user_role in [
-            "owner",
             "government",
             "mahalla_admin",
             "super_admin",
@@ -129,13 +128,9 @@ class QRCodeListAPIView(generics.ListAPIView):
 
         queryset = QRCode.objects.select_related("house__owner", "house__mahalla")
 
-        # Regular users see only unclaimed houses
+        # Users see only unclaimed houses
         if role == "user":
             return queryset.filter(house__owner__isnull=True)
-
-        # Owner sees their own houses
-        if role == "owner":
-            return queryset.filter(house__owner=user)
 
         # Mahalla admin sees their neighborhood
         if role == "mahalla_admin" and hasattr(user, "mahalla"):

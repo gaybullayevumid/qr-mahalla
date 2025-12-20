@@ -11,8 +11,7 @@ class User(AbstractBaseUser, PermissionsMixin):
         ("super_admin", "Super Admin"),
         ("government", "Government Officer"),
         ("mahalla_admin", "Neighborhood Admin"),
-        ("owner", "House Owner"),
-        ("user", "Regular User"),
+        ("user", "User"),
     )
 
     phone = models.CharField(max_length=15, unique=True, verbose_name="Phone number")

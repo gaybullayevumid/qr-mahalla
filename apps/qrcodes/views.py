@@ -67,6 +67,13 @@ class ScanQRCodeView(APIView):
                 {"error": "QR code not found"}, status=status.HTTP_404_NOT_FOUND
             )
 
+        # Log scan and save UUID to user (for all cases)
+        ScanLog.objects.create(
+            qr=qr, scanned_by=request.user, ip_address=get_client_ip(request)
+        )
+        request.user.scanned_qr_code = qr.uuid
+        request.user.save(update_fields=["scanned_qr_code"])
+
         # Unclaimed house - user can claim it
         if not qr.house.owner:
             return Response(
@@ -84,13 +91,6 @@ class ScanQRCodeView(APIView):
                     },
                 }
             )
-
-        # Log scan and save UUID to user
-        ScanLog.objects.create(
-            qr=qr, scanned_by=request.user, ip_address=get_client_ip(request)
-        )
-        request.user.scanned_qr_code = qr.uuid
-        request.user.save(update_fields=["scanned_qr_code"])
 
         # Determine access level based on user role
         user_role = getattr(request.user, "role", "user")

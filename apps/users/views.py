@@ -147,6 +147,35 @@ class AuthAPIView(APIView):
                 },
             )
 
+            # Get all available roles
+            available_roles = [
+                {
+                    "value": "super_admin",
+                    "label": "Super Admin",
+                    "level": 5,
+                },
+                {
+                    "value": "government",
+                    "label": "Government Officer",
+                    "level": 4,
+                },
+                {
+                    "value": "mahalla_admin",
+                    "label": "Neighborhood Admin",
+                    "level": 3,
+                },
+                {
+                    "value": "owner",
+                    "label": "House Owner",
+                    "level": 2,
+                },
+                {
+                    "value": "user",
+                    "label": "Regular User",
+                    "level": 1,
+                },
+            ]
+
             return Response(
                 {
                     "access": str(refresh.access_token),
@@ -159,6 +188,7 @@ class AuthAPIView(APIView):
                         "scanned_qr_code": user.scanned_qr_code,
                         "has_scanned_qr": bool(user.scanned_qr_code),
                     },
+                    "available_roles": available_roles,
                 },
                 status=status.HTTP_200_OK,
             )

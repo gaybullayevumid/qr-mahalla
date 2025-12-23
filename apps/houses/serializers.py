@@ -19,13 +19,16 @@ class HouseSerializer(serializers.ModelSerializer):
 
 
 class HouseCreateSerializer(serializers.ModelSerializer):
-    """Create house"""
+    """Create house - owner is set automatically"""
 
-    mahalla = serializers.PrimaryKeyRelatedField(queryset=Mahalla.objects.all())
-    owner = serializers.PrimaryKeyRelatedField(
-        queryset=User.objects.all(), required=False, allow_null=True
+    mahalla = serializers.PrimaryKeyRelatedField(
+        queryset=Mahalla.objects.all(), required=True
     )
 
     class Meta:
         model = House
-        fields = ("mahalla", "house_number", "address", "owner")
+        fields = ("mahalla", "house_number", "address")
+
+    def validate_mahalla(self, value):
+        """Allow all authenticated users to use any mahalla ID"""
+        return value

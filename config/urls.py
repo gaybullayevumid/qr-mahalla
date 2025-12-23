@@ -21,6 +21,7 @@ urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/users/", include("apps.users.urls")),
     path("api/regions/", include("apps.regions.urls")),
+    path("api/houses/", include("apps.houses.urls")),
     path("api/qrcodes/", include("apps.qrcodes.urls")),
     path(
         "swagger/",

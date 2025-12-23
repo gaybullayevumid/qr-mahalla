@@ -5,7 +5,7 @@ class HouseAccessPermission(BasePermission):
     """
     Super admin → all houses
     Neighborhood admin → only own neighborhood
-    Owner → only own house
+    User/Owner → only own house
     """
 
     def has_object_permission(self, request, view, obj):
@@ -17,10 +17,14 @@ class HouseAccessPermission(BasePermission):
         if user.role == "super_admin":
             return True
 
+        if user.role == "government":
+            return True
+
         if user.role == "mahalla_admin":
             return hasattr(user, "mahalla") and obj.mahalla == user.mahalla
 
-        if user.role == "owner":
+        # Regular users and owners can access their own houses
+        if user.role in ["user", "owner"]:
             return obj.owner == user
 
         return False

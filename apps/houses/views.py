@@ -22,6 +22,10 @@ class HouseViewSet(ModelViewSet):
             return HouseCreateSerializer
         return HouseSerializer
 
+    def perform_create(self, serializer):
+        """Automatically set owner to current user when creating a house"""
+        serializer.save(owner=self.request.user)
+
     def get_queryset(self):
         user = self.request.user
         role = getattr(user, "role", None)
@@ -31,12 +35,8 @@ class HouseViewSet(ModelViewSet):
 
         queryset = House.objects.select_related("owner", "mahalla__district__region")
 
-        # Users see all houses (read-only)
+        # Users see their own houses
         if role == "user":
-            return queryset
-
-        # Owner sees their own houses
-        if role == "owner":
             return queryset.filter(owner=user)
 
         # Mahalla admin sees their neighborhood

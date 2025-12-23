@@ -19,29 +19,41 @@ class UserListSerializer(serializers.ModelSerializer):
             "address",
             "role",
             "is_verified",
-            "scanned_qr_code",
             "houses",
         )
         read_only_fields = ("id",)
 
     def get_houses(self, obj):
-        """Get all houses owned by this user"""
+        """Get all houses owned by this user with their scanned QR codes"""
         from apps.houses.models import House
+        from apps.qrcodes.models import QRCode
 
         houses = House.objects.filter(owner=obj).select_related(
             "mahalla__district__region"
         )
-        return [
-            {
-                "id": house.id,
-                "address": house.address,
-                "house_number": house.house_number,
-                "mahalla": house.mahalla.name,
-                "district": house.mahalla.district.name,
-                "region": house.mahalla.district.region.name,
-            }
-            for house in houses
-        ]
+
+        house_list = []
+        for house in houses:
+            # Get QR code for this house
+            try:
+                qr_code = QRCode.objects.get(house=house)
+                scanned_qr = qr_code.uuid
+            except QRCode.DoesNotExist:
+                scanned_qr = None
+
+            house_list.append(
+                {
+                    "id": house.id,
+                    "address": house.address,
+                    "house_number": house.house_number,
+                    "mahalla": house.mahalla.name,
+                    "district": house.mahalla.district.name,
+                    "region": house.mahalla.district.region.name,
+                    "scanned_qr_code": scanned_qr,
+                }
+            )
+
+        return house_list
 
 
 class AuthSerializer(serializers.Serializer):

@@ -171,6 +171,34 @@ class AuthAPIView(APIView):
                 },
             ]
 
+            # Get user's houses with QR codes
+            from apps.houses.models import House
+            from apps.qrcodes.models import QRCode
+
+            houses = House.objects.filter(owner=user).select_related(
+                "mahalla__district__region"
+            )
+
+            house_list = []
+            for house in houses:
+                try:
+                    qr_code = QRCode.objects.get(house=house)
+                    scanned_qr = qr_code.uuid
+                except QRCode.DoesNotExist:
+                    scanned_qr = None
+
+                house_list.append(
+                    {
+                        "id": house.id,
+                        "address": house.address,
+                        "house_number": house.house_number,
+                        "mahalla": house.mahalla.name,
+                        "district": house.mahalla.district.name,
+                        "region": house.mahalla.district.region.name,
+                        "scanned_qr_code": scanned_qr,
+                    }
+                )
+
             return Response(
                 {
                     "access": str(refresh.access_token),
@@ -180,8 +208,7 @@ class AuthAPIView(APIView):
                         "role": user.role,
                         "first_name": user.first_name,
                         "last_name": user.last_name,
-                        "scanned_qr_code": user.scanned_qr_code,
-                        "has_scanned_qr": bool(user.scanned_qr_code),
+                        "houses": house_list,
                     },
                     "available_roles": available_roles,
                 },
@@ -206,6 +233,34 @@ class UserProfileAPIView(APIView):
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
+        # Get user's houses with QR codes
+        from apps.houses.models import House
+        from apps.qrcodes.models import QRCode
+
+        houses = House.objects.filter(owner=user).select_related(
+            "mahalla__district__region"
+        )
+
+        house_list = []
+        for house in houses:
+            try:
+                qr_code = QRCode.objects.get(house=house)
+                scanned_qr = qr_code.uuid
+            except QRCode.DoesNotExist:
+                scanned_qr = None
+
+            house_list.append(
+                {
+                    "id": house.id,
+                    "address": house.address,
+                    "house_number": house.house_number,
+                    "mahalla": house.mahalla.name,
+                    "district": house.mahalla.district.name,
+                    "region": house.mahalla.district.region.name,
+                    "scanned_qr_code": scanned_qr,
+                }
+            )
+
         return Response(
             {
                 "phone": user.phone,
@@ -215,8 +270,7 @@ class UserProfileAPIView(APIView):
                 "passport_id": user.passport_id,
                 "address": user.address,
                 "is_verified": user.is_verified,
-                "scanned_qr_code": user.scanned_qr_code,
-                "has_scanned_qr": bool(user.scanned_qr_code),
+                "houses": house_list,
             }
         )
 

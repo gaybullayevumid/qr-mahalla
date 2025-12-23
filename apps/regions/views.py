@@ -10,8 +10,11 @@ from .serializers import (
     RegionDetailSerializer,
     DistrictSerializer,
     DistrictCreateSerializer,
+    DistrictNestedSerializer,
+    DistrictNestedWriteSerializer,
     MahallaSerializer,
     MahallaCreateSerializer,
+    MahallaNestedWriteSerializer,
 )
 from .permissions import IsSuperAdmin, IsAdminOrGovernment
 
@@ -38,7 +41,11 @@ class RegionViewSet(ModelViewSet):
 
 
 class DistrictViewSet(ModelViewSet):
-    queryset = District.objects.select_related("region").all()
+    queryset = (
+        District.objects.select_related("region")
+        .prefetch_related("mahallas__admin")
+        .all()
+    )
 
     def get_permissions(self):
         """
@@ -51,7 +58,9 @@ class DistrictViewSet(ModelViewSet):
 
     def get_serializer_class(self):
         if self.action in ["create", "update", "partial_update"]:
-            return DistrictCreateSerializer
+            return DistrictNestedWriteSerializer  # Supports nested mahallas CRUD
+        if self.action == "retrieve":
+            return DistrictNestedSerializer  # Shows nested mahallas on detail view
         return DistrictSerializer
 
 

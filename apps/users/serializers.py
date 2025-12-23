@@ -7,11 +7,46 @@ class HouseNestedSerializer(serializers.Serializer):
     """Nested serializer for houses in user data"""
 
     id = serializers.IntegerField(required=False, allow_null=True)
+    region = serializers.IntegerField(required=False, allow_null=True)
+    district = serializers.IntegerField(required=False, allow_null=True)
     mahalla = serializers.IntegerField(required=True)
     house_number = serializers.CharField(
         max_length=50, required=False, allow_blank=True
     )
     address = serializers.CharField(max_length=255, required=True)
+
+    def validate(self, data):
+        """Validate that mahalla belongs to district and region if provided"""
+        from apps.regions.models import Mahalla, District, Region
+
+        mahalla_id = data.get("mahalla")
+        district_id = data.get("district")
+        region_id = data.get("region")
+
+        if mahalla_id:
+            try:
+                mahalla = Mahalla.objects.select_related("district__region").get(
+                    id=mahalla_id
+                )
+
+                # Validate district matches
+                if district_id and mahalla.district.id != district_id:
+                    raise serializers.ValidationError(
+                        f"Mahalla {mahalla.name} does not belong to district ID {district_id}"
+                    )
+
+                # Validate region matches
+                if region_id and mahalla.district.region.id != region_id:
+                    raise serializers.ValidationError(
+                        f"Mahalla {mahalla.name} does not belong to region ID {region_id}"
+                    )
+
+            except Mahalla.DoesNotExist:
+                raise serializers.ValidationError(
+                    f"Mahalla with ID {mahalla_id} does not exist"
+                )
+
+        return data
 
 
 class UserListSerializer(serializers.ModelSerializer):

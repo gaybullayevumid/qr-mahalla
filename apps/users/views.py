@@ -188,6 +188,7 @@ class AuthAPIView(APIView):
                     scanned_qr = None
 
                 house_list.append(
+                    
                     {
                         "id": house.id,
                         "address": house.address,

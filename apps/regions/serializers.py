@@ -91,14 +91,63 @@ class DistrictNestedSerializer(serializers.ModelSerializer):
 
 
 class DistrictNestedWriteSerializer(serializers.ModelSerializer):
-    """District for write operations (nested in Region)"""
+    """District for write operations (nested in Region or standalone)"""
 
     mahallas = MahallaNestedWriteSerializer(many=True, required=False)
 
     class Meta:
         model = District
-        fields = ("id", "name", "mahallas")
-        extra_kwargs = {"id": {"required": False}}
+        fields = ("id", "name", "region", "mahallas")
+        extra_kwargs = {
+            "id": {"required": False},
+            "region": {"required": False},
+        }
+
+    def create(self, validated_data):
+        """Create district with nested mahallas"""
+        mahallas_data = validated_data.pop("mahallas", [])
+        district = District.objects.create(**validated_data)
+
+        for mahalla_data in mahallas_data:
+            Mahalla.objects.create(district=district, **mahalla_data)
+
+        return district
+
+    def update(self, instance, validated_data):
+        """Update district and nested mahallas"""
+        mahallas_data = validated_data.pop("mahallas", None)
+
+        # Update district fields
+        instance.name = validated_data.get("name", instance.name)
+        if "region" in validated_data:
+            instance.region = validated_data.get("region")
+        instance.save()
+
+        # Update mahallas if provided
+        if mahallas_data is not None:
+            existing_mahalla_ids = []
+            for mahalla_data in mahallas_data:
+                mahalla_id = mahalla_data.get("id")
+
+                if mahalla_id:
+                    # Update existing mahalla
+                    try:
+                        mahalla = Mahalla.objects.get(id=mahalla_id, district=instance)
+                        mahalla.name = mahalla_data.get("name", mahalla.name)
+                        mahalla.admin = mahalla_data.get("admin", mahalla.admin)
+                        mahalla.save()
+                        existing_mahalla_ids.append(mahalla.id)
+                    except Mahalla.DoesNotExist:
+                        pass
+                else:
+                    # Create new mahalla
+                    mahalla = Mahalla.objects.create(district=instance, **mahalla_data)
+                    existing_mahalla_ids.append(mahalla.id)
+
+            # Delete mahallas not in the update
+            instance.mahallas.exclude(id__in=existing_mahalla_ids).delete()
+
+        return instance
 
 
 class RegionSerializer(serializers.ModelSerializer):

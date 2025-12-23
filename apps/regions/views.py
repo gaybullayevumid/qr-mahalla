@@ -23,10 +23,8 @@ class RegionViewSet(ModelViewSet):
 
     def get_permissions(self):
         """
-        Allow users to read (GET), only admins can modify
+        Only admins can view and modify regions
         """
-        if self.action in ["list", "retrieve"]:
-            return [IsAuthenticated()]
         return [IsAdminOrGovernment()]
 
     def get_serializer_class(self):
@@ -41,10 +39,8 @@ class DistrictViewSet(ModelViewSet):
 
     def get_permissions(self):
         """
-        Allow users to read (GET), only admins can modify
+        Only admins can view and modify districts
         """
-        if self.action in ["list", "retrieve"]:
-            return [IsAuthenticated()]
         return [IsAdminOrGovernment()]
 
     def get_serializer_class(self):
@@ -58,11 +54,8 @@ class MahallaViewSet(ModelViewSet):
 
     def get_permissions(self):
         """
-        Allow regular users to read (GET) and create (POST)
-        Only admins can update/delete
+        Only admins can view and modify mahallas
         """
-        if self.action in ["list", "retrieve", "create"]:
-            return [IsAuthenticated()]
         return [IsAdminOrGovernment()]
 
     def get_serializer_class(self):

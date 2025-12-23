@@ -94,7 +94,9 @@ class ScanQRCodeView(APIView):
 
         # Determine access level based on user role
         user_role = getattr(request.user, "role", "user")
-        include_private = user_role in [
+        # User can see private info if they own the house or if they are admin/government
+        is_owner = qr.house.owner == request.user
+        include_private = is_owner or user_role in [
             "government",
             "mahalla_admin",
             "super_admin",
@@ -172,8 +174,8 @@ class QRCodeDetailAPIView(generics.RetrieveAPIView):
 
         queryset = QRCode.objects.select_related("house__owner", "house__mahalla")
 
-        # Owner sees only their houses
-        if role == "owner":
+        # Regular users see only their own houses (where they are owner)
+        if role == "user":
             return queryset.filter(house__owner=user)
 
         # Mahalla admin sees their neighborhood
@@ -208,13 +210,13 @@ class ClaimHouseView(APIView):
         serializer = QRCodeClaimSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        # Update user info and role
+        # Update user info (keep existing role - don't change to owner)
         user = request.user
         user.first_name = serializer.validated_data["first_name"]
         user.last_name = serializer.validated_data["last_name"]
         user.passport_id = serializer.validated_data["passport_id"]
         user.address = serializer.validated_data["address"]
-        user.role = "owner"
+        # Don't change role - user stays as "user"
         user.save()
 
         # Assign house ownership

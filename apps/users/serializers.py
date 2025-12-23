@@ -3,8 +3,19 @@ import re
 from .models import User
 
 
+class HouseNestedSerializer(serializers.Serializer):
+    """Nested serializer for houses in user data"""
+
+    id = serializers.IntegerField(required=False, allow_null=True)
+    mahalla = serializers.IntegerField(required=True)
+    house_number = serializers.CharField(
+        max_length=50, required=False, allow_blank=True
+    )
+    address = serializers.CharField(max_length=255, required=True)
+
+
 class UserListSerializer(serializers.ModelSerializer):
-    """User list serializer with houses"""
+    """User list serializer with houses - supports nested house CRUD"""
 
     houses = serializers.SerializerMethodField()
 
@@ -54,6 +65,122 @@ class UserListSerializer(serializers.ModelSerializer):
             )
 
         return house_list
+
+
+class UserCreateUpdateSerializer(serializers.ModelSerializer):
+    """Serializer for creating/updating users with nested houses"""
+
+    houses = HouseNestedSerializer(many=True, required=False)
+
+    class Meta:
+        model = User
+        fields = (
+            "id",
+            "phone",
+            "first_name",
+            "last_name",
+            "passport_id",
+            "address",
+            "role",
+            "houses",
+        )
+        read_only_fields = ("id",)
+        extra_kwargs = {
+            "phone": {"required": False},  # Make phone optional for updates
+            "first_name": {"required": False},
+            "last_name": {"required": False},
+            "role": {"required": False},
+        }
+
+    def validate_phone(self, value):
+        """Validate phone number format"""
+        if value:
+            phone_pattern = re.compile(r"^\+?998[0-9]{9}$")
+            if not phone_pattern.match(value):
+                raise serializers.ValidationError(
+                    "Invalid phone number format. Format: +998901234567"
+                )
+        return value
+
+    def create(self, validated_data):
+        """Create user with houses"""
+        from apps.houses.models import House
+        from apps.regions.models import Mahalla
+
+        houses_data = validated_data.pop("houses", [])
+
+        # Set default role if not provided
+        if "role" not in validated_data:
+            validated_data["role"] = "user"
+
+        user = User.objects.create(**validated_data)
+
+        # Create houses for this user
+        for house_data in houses_data:
+            mahalla_id = house_data.pop("mahalla")
+            try:
+                mahalla = Mahalla.objects.get(id=mahalla_id)
+                House.objects.create(owner=user, mahalla=mahalla, **house_data)
+            except Mahalla.DoesNotExist:
+                pass  # Skip if mahalla not found
+
+        return user
+
+    def update(self, instance, validated_data):
+        """Update user and their houses"""
+        from apps.houses.models import House
+        from apps.regions.models import Mahalla
+
+        houses_data = validated_data.pop("houses", None)
+
+        # Update user fields
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        instance.save()
+
+        # Update houses if provided
+        if houses_data is not None:
+            # Get existing house IDs
+            existing_house_ids = set(
+                House.objects.filter(owner=instance).values_list("id", flat=True)
+            )
+            updated_house_ids = set()
+
+            for house_data in houses_data:
+                house_id = house_data.get("id")
+                mahalla_id = house_data.pop("mahalla")
+
+                try:
+                    mahalla = Mahalla.objects.get(id=mahalla_id)
+
+                    if house_id and house_id in existing_house_ids:
+                        # Update existing house
+                        house = House.objects.get(id=house_id, owner=instance)
+                        house.mahalla = mahalla
+                        house.address = house_data.get("address", house.address)
+                        house.house_number = house_data.get(
+                            "house_number", house.house_number
+                        )
+                        house.save()
+                        updated_house_ids.add(house_id)
+                    else:
+                        # Create new house
+                        house = House.objects.create(
+                            owner=instance,
+                            mahalla=mahalla,
+                            address=house_data.get("address"),
+                            house_number=house_data.get("house_number", ""),
+                        )
+                        updated_house_ids.add(house.id)
+                except Mahalla.DoesNotExist:
+                    pass  # Skip if mahalla not found
+
+            # Delete houses that were not in the update
+            houses_to_delete = existing_house_ids - updated_house_ids
+            if houses_to_delete:
+                House.objects.filter(id__in=houses_to_delete, owner=instance).delete()
+
+        return instance
 
 
 class AuthSerializer(serializers.Serializer):

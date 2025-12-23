@@ -1,5 +1,5 @@
 from rest_framework.views import APIView
-from rest_framework.viewsets import ReadOnlyModelViewSet
+from rest_framework.viewsets import ModelViewSet
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -9,7 +9,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenRefreshView as BaseTokenRefreshView
 
 from .models import User, PhoneOTP, UserSession
-from .serializers import AuthSerializer, UserListSerializer
+from .serializers import AuthSerializer, UserListSerializer, UserCreateUpdateSerializer
 from .services import send_sms
 
 
@@ -425,9 +425,47 @@ class CustomTokenRefreshView(BaseTokenRefreshView):
     schema = None
 
 
-class UserViewSet(ReadOnlyModelViewSet):
-    """Read-only viewset for listing and retrieving users with their houses"""
+class UserViewSet(ModelViewSet):
+    """CRUD viewset for users with their houses"""
 
     queryset = User.objects.prefetch_related("houses__mahalla__district__region").all()
-    serializer_class = UserListSerializer
     permission_classes = [IsAuthenticated]
+
+    def get_serializer_class(self):
+        """Use different serializers for different actions"""
+        if self.action in ["create", "update", "partial_update"]:
+            return UserCreateUpdateSerializer
+        return UserListSerializer
+
+    def get_queryset(self):
+        """Filter users based on role"""
+        user = self.request.user
+        role = getattr(user, "role", None)
+
+        if not role:
+            return User.objects.none()
+
+        # Regular users see only themselves
+        if role == "user":
+            return User.objects.filter(id=user.id).prefetch_related(
+                "houses__mahalla__district__region"
+            )
+
+        # Mahalla admin sees users in their mahalla
+        if role == "mahalla_admin" and hasattr(user, "mahalla"):
+            # Get users who own houses in this mahalla
+            return (
+                User.objects.filter(houses__mahalla=user.mahalla)
+                .distinct()
+                .prefetch_related("houses__mahalla__district__region")
+            )
+
+        # Super admin and government see all users
+        return User.objects.all().prefetch_related("houses__mahalla__district__region")
+
+    def get_permissions(self):
+        """Users can view their own data and update it, admins can do CRUD"""
+        if self.action in ["list", "retrieve", "update", "partial_update"]:
+            return [IsAuthenticated()]
+        # Only admins can create and delete users
+        return [IsAuthenticated()]

@@ -15,6 +15,23 @@ class HouseNestedSerializer(serializers.Serializer):
     )
     address = serializers.CharField(max_length=255, required=True)
 
+    def to_representation(self, instance):
+        """Convert House instance to dictionary for response"""
+        from apps.houses.models import House
+
+        if isinstance(instance, House):
+            # Converting House model instance
+            return {
+                "id": instance.id,
+                "mahalla": instance.mahalla.id,
+                "district": instance.mahalla.district.id,
+                "region": instance.mahalla.district.region.id,
+                "house_number": instance.house_number or "",
+                "address": instance.address,
+            }
+        # If it's already a dict (from create/update), return as is
+        return super().to_representation(instance)
+
     def validate(self, data):
         """Validate that mahalla belongs to district and region if provided"""
         from apps.regions.models import Mahalla, District, Region

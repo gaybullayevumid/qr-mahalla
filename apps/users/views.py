@@ -204,10 +204,14 @@ class AuthAPIView(APIView):
                     "access": str(refresh.access_token),
                     "refresh": str(refresh),
                     "user": {
+                        "id": user.id,
                         "phone": user.phone,
                         "role": user.role,
                         "first_name": user.first_name,
                         "last_name": user.last_name,
+                        "passport_id": user.passport_id,
+                        "address": user.address,
+                        "is_verified": user.is_verified,
                         "houses": house_list,
                     },
                     "available_roles": available_roles,
@@ -263,6 +267,7 @@ class UserProfileAPIView(APIView):
 
         return Response(
             {
+                "id": user.id,
                 "phone": user.phone,
                 "role": user.role,
                 "first_name": user.first_name,

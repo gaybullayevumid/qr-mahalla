@@ -10,7 +10,15 @@ class MahallaNestedWriteSerializer(serializers.ModelSerializer):
     class Meta:
         model = Mahalla
         fields = ("id", "name", "admin")
-        extra_kwargs = {"id": {"required": False}}
+        extra_kwargs = {
+            "id": {"required": False, "read_only": False}
+        }  # Allow id for updates
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Remove unique validator from id field
+        if "id" in self.fields:
+            self.fields["id"].validators = []
 
 
 class MahallaSerializer(serializers.ModelSerializer):
@@ -102,8 +110,14 @@ class DistrictNestedWriteSerializer(serializers.ModelSerializer):
         model = District
         fields = ("id", "name", "region", "mahallas")
         extra_kwargs = {
-            "id": {"required": False},
+            "id": {"required": False, "read_only": False},  # Allow id for updates
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Remove unique validator from id field
+        if "id" in self.fields:
+            self.fields["id"].validators = []
 
     def create(self, validated_data):
         """Create district with nested mahallas"""
@@ -136,7 +150,7 @@ class DistrictNestedWriteSerializer(serializers.ModelSerializer):
         if mahallas_data is not None:
             existing_mahalla_ids = []
             for mahalla_data in mahallas_data:
-                mahalla_id = mahalla_data.get("id")
+                mahalla_id = mahalla_data.pop("id", None)  # Pop id instead of get
 
                 if mahalla_id:
                     # Update existing mahalla
@@ -201,7 +215,7 @@ class RegionWriteSerializer(serializers.ModelSerializer):
             existing_district_ids = []
             for district_data in districts_data:
                 mahallas_data = district_data.pop("mahallas", [])
-                district_id = district_data.get("id")
+                district_id = district_data.pop("id", None)  # Pop id instead of get
 
                 if district_id:
                     # Update existing district
@@ -210,7 +224,7 @@ class RegionWriteSerializer(serializers.ModelSerializer):
                     district.save()
                     existing_district_ids.append(district.id)
                 else:
-                    # Create new district
+                    # Create new district (id already popped, won't cause unique error)
                     district = District.objects.create(region=instance, **district_data)
                     existing_district_ids.append(district.id)
 
@@ -218,7 +232,9 @@ class RegionWriteSerializer(serializers.ModelSerializer):
                 if mahallas_data:
                     existing_mahalla_ids = []
                     for mahalla_data in mahallas_data:
-                        mahalla_id = mahalla_data.get("id")
+                        mahalla_id = mahalla_data.pop(
+                            "id", None
+                        )  # Pop id instead of get
 
                         if mahalla_id:
                             # Update existing mahalla

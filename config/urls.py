@@ -20,7 +20,9 @@ schema_view = get_schema_view(
 urlpatterns = [
     path("admin/", admin.site.urls),
     path("api/users/", include("apps.users.urls")),
-    path("api/regions/", include("apps.regions.urls")),
+    path(
+        "api/", include("apps.regions.urls")
+    ),  # This includes regions/, districts/, mahallas/
     path("api/qrcodes/", include("apps.qrcodes.urls")),
     path(
         "swagger/",

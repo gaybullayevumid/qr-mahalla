@@ -144,6 +144,14 @@ class UserCreateUpdateSerializer(serializers.ModelSerializer):
             "role": {"required": False},
         }
 
+    def validate(self, data):
+        """Validate the entire data"""
+        print("=" * 70)
+        print("✅ VALIDATION")
+        print(f"Data: {data}")
+        print("=" * 70)
+        return data
+
     def validate_phone(self, value):
         """Validate phone number format"""
         if value:
@@ -193,7 +201,18 @@ class UserCreateUpdateSerializer(serializers.ModelSerializer):
         from apps.houses.models import House
         from apps.regions.models import Mahalla
 
+        # Debug logging
+        print("=" * 70)
+        print("🔧 USER UPDATE")
+        print(f"Instance: User {instance.id}")
+        print(f"Validated data: {validated_data}")
+        print("=" * 70)
+
         houses_data = validated_data.pop("houses", None)
+
+        if houses_data:
+            print(f"📦 Houses data: {houses_data}")
+            print(f"Houses count: {len(houses_data)}")
 
         # Update user fields
         for attr, value in validated_data.items():

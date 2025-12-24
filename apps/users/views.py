@@ -188,7 +188,6 @@ class AuthAPIView(APIView):
                     scanned_qr = None
 
                 house_list.append(
-                    
                     {
                         "id": house.id,
                         "address": house.address,
@@ -219,7 +218,7 @@ class AuthAPIView(APIView):
 
 class UserProfileAPIView(APIView):
     """
-    Get user profile
+    Get and update user profile
     """
 
     permission_classes = [IsAuthenticated]
@@ -274,6 +273,30 @@ class UserProfileAPIView(APIView):
                 "houses": house_list,
             }
         )
+
+    def put(self, request):
+        """Update user profile"""
+        user = request.user
+
+        # Update allowed fields
+        allowed_fields = ["first_name", "last_name", "passport_id", "address"]
+
+        for field in allowed_fields:
+            if field in request.data:
+                setattr(user, field, request.data[field])
+
+        user.save()
+
+        # Return updated profile
+        return self.get(request)
+
+    def patch(self, request):
+        """Partial update user profile"""
+        return self.put(request)
+
+    def post(self, request):
+        """POST method - redirect to PUT"""
+        return self.put(request)
 
 
 class UserSessionsAPIView(APIView):

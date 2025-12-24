@@ -30,7 +30,6 @@ TELEGRAM_CHAT_IDS = os.getenv("TELEGRAM_CHAT_IDS", "8055309446,5323321097").spli
 # Application definition
 
 INSTALLED_APPS = [
-    "jazzmin",
     "corsheaders",
     "django.contrib.admin",
     "django.contrib.auth",
@@ -193,84 +192,4 @@ MEDIA_ROOT = BASE_DIR / "media"
 
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
 
-# Jazzmin settings
-JAZZMIN_SETTINGS = {
-    "site_title": "QR Mahalla Admin",
-    "site_header": "QR Mahalla",
-    "site_brand": "QR Mahalla Management",
-    "site_logo": None,
-    "welcome_sign": "Welcome to QR Mahalla Admin Panel",
-    "copyright": "QR Mahalla 2025",
-    "search_model": ["users.User", "houses.House", "qrcodes.QRCode"],
-    "user_avatar": None,
-    # Top Menu
-    "topmenu_links": [
-        {"name": "Home", "url": "admin:index", "permissions": ["auth.view_user"]},
-        {"name": "API Documentation", "url": "/swagger/", "new_window": True},
-        {"model": "users.User"},
-        {"model": "qrcodes.QRCode"},
-    ],
-    # Side Menu
-    "show_sidebar": True,
-    "navigation_expanded": True,
-    "hide_apps": [],
-    "hide_models": [],
-    "order_with_respect_to": ["users", "regions", "houses", "qrcodes", "scans"],
-    # Icons
-    "icons": {
-        "auth": "fas fa-users-cog",
-        "users.User": "fas fa-user",
-        "users.PhoneOTP": "fas fa-sms",
-        "users.UserSession": "fas fa-mobile-alt",
-        "regions.Region": "fas fa-globe",
-        "regions.District": "fas fa-map-marked-alt",
-        "regions.Mahalla": "fas fa-map-marker-alt",
-        "houses.House": "fas fa-home",
-        "qrcodes.QRCode": "fas fa-qrcode",
-        "scans.ScanLog": "fas fa-eye",
-    },
-    # UI Tweaks
-    "custom_css": None,
-    "custom_js": None,
-    "use_google_fonts_cdn": True,
-    "show_ui_builder": False,
-    "changeform_format": "horizontal_tabs",
-    "changeform_format_overrides": {
-        "users.user": "collapsible",
-        "auth.group": "vertical_tabs",
-    },
-    # Language chooser
-    "language_chooser": False,
-}
-
-JAZZMIN_UI_TWEAKS = {
-    "navbar_small_text": False,
-    "footer_small_text": False,
-    "body_small_text": False,
-    "brand_small_text": False,
-    "brand_colour": "navbar-success",
-    "accent": "accent-primary",
-    "navbar": "navbar-dark",
-    "no_navbar_border": False,
-    "navbar_fixed": False,
-    "layout_boxed": False,
-    "footer_fixed": False,
-    "sidebar_fixed": False,
-    "sidebar": "sidebar-dark-primary",
-    "sidebar_nav_small_text": False,
-    "sidebar_disable_expand": False,
-    "sidebar_nav_child_indent": False,
-    "sidebar_nav_compact_style": False,
-    "sidebar_nav_legacy_style": False,
-    "sidebar_nav_flat_style": False,
-    "theme": "default",
-    "dark_mode_theme": None,
-    "button_classes": {
-        "primary": "btn-primary",
-        "secondary": "btn-secondary",
-        "info": "btn-info",
-        "warning": "btn-warning",
-        "danger": "btn-danger",
-        "success": "btn-success",
-    },
-}
+# Django Admin settings - using default admin interface

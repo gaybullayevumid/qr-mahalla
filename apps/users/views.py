@@ -199,25 +199,34 @@ class AuthAPIView(APIView):
                     }
                 )
 
-            return Response(
-                {
-                    "access": str(refresh.access_token),
-                    "refresh": str(refresh),
-                    "user": {
-                        "id": user.id,
-                        "phone": user.phone,
-                        "role": user.role,
-                        "first_name": user.first_name,
-                        "last_name": user.last_name,
-                        "passport_id": user.passport_id,
-                        "address": user.address,
-                        "is_verified": user.is_verified,
-                        "houses": house_list,
-                    },
-                    "available_roles": available_roles,
+            response_data = {
+                "access": str(refresh.access_token),
+                "refresh": str(refresh),
+                "user": {
+                    "id": user.id,
+                    "phone": user.phone,
+                    "role": user.role,
+                    "first_name": user.first_name,
+                    "last_name": user.last_name,
+                    "passport_id": user.passport_id,
+                    "address": user.address,
+                    "is_verified": user.is_verified,
+                    "houses": house_list,
                 },
-                status=status.HTTP_200_OK,
-            )
+                "available_roles": available_roles,
+            }
+
+            # Debug logging
+            print("=" * 70)
+            print("🔐 AUTH SUCCESS")
+            print(f"Phone: {phone}, Code verified: {code}")
+            print(f"User ID: {user.id}")
+            print(f"Response user.id: {response_data['user']['id']}")
+            print(f"Response keys: {list(response_data.keys())}")
+            print(f"User keys: {list(response_data['user'].keys())}")
+            print("=" * 70)
+
+            return Response(response_data, status=status.HTTP_200_OK)
 
 
 class UserProfileAPIView(APIView):
@@ -230,6 +239,13 @@ class UserProfileAPIView(APIView):
 
     def get(self, request):
         user = request.user
+
+        # Debug logging
+        print("=" * 70)
+        print("🔍 PROFILE GET REQUEST")
+        print(f"User: {user.id} - {user.phone}")
+        print(f"Authenticated: {user.is_authenticated}")
+        print("=" * 70)
 
         if not user.is_authenticated or not hasattr(user, "role"):
             return Response(
@@ -265,19 +281,25 @@ class UserProfileAPIView(APIView):
                 }
             )
 
-        return Response(
-            {
-                "id": user.id,
-                "phone": user.phone,
-                "role": user.role,
-                "first_name": user.first_name,
-                "last_name": user.last_name,
-                "passport_id": user.passport_id,
-                "address": user.address,
-                "is_verified": user.is_verified,
-                "houses": house_list,
-            }
-        )
+        response_data = {
+            "id": user.id,
+            "phone": user.phone,
+            "role": user.role,
+            "first_name": user.first_name,
+            "last_name": user.last_name,
+            "passport_id": user.passport_id,
+            "address": user.address,
+            "is_verified": user.is_verified,
+            "houses": house_list,
+        }
+
+        # Debug logging
+        print("📤 PROFILE RESPONSE:")
+        print(f"ID in response: {response_data.get('id')}")
+        print(f"Keys: {list(response_data.keys())}")
+        print("=" * 70)
+
+        return Response(response_data)
 
     def put(self, request):
         """Update user profile"""

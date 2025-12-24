@@ -11,7 +11,7 @@ class HouseNestedSerializer(serializers.Serializer):
     district = serializers.IntegerField(required=False, allow_null=True)
     mahalla = serializers.IntegerField(required=True)
     house_number = serializers.CharField(
-        max_length=50, required=False, allow_blank=True
+        max_length=50, required=False, allow_blank=True, default=""
     )
     address = serializers.CharField(max_length=255, required=True)
 
@@ -148,11 +148,21 @@ class UserCreateUpdateSerializer(serializers.ModelSerializer):
         if "role" not in validated_data:
             validated_data["role"] = "user"
 
+        # Ensure phone is provided for user creation
+        if "phone" not in validated_data:
+            raise serializers.ValidationError(
+                {"phone": "Phone number is required when creating a user"}
+            )
+
         user = User.objects.create(**validated_data)
 
         # Create houses for this user
         for house_data in houses_data:
             mahalla_id = house_data.pop("mahalla")
+            # Remove region and district as they're not part of House model
+            house_data.pop("region", None)
+            house_data.pop("district", None)
+
             try:
                 mahalla = Mahalla.objects.get(id=mahalla_id)
                 House.objects.create(owner=user, mahalla=mahalla, **house_data)
@@ -187,6 +197,10 @@ class UserCreateUpdateSerializer(serializers.ModelSerializer):
 
                 try:
                     mahalla = Mahalla.objects.get(id=mahalla_id)
+
+                    # Remove region and district as they're not part of House model
+                    house_data.pop("region", None)
+                    house_data.pop("district", None)
 
                     if house_id and house_id in existing_house_ids:
                         # Update existing house

@@ -94,18 +94,27 @@ class DistrictNestedWriteSerializer(serializers.ModelSerializer):
     """District for write operations (nested in Region or standalone)"""
 
     mahallas = MahallaNestedWriteSerializer(many=True, required=False)
+    region = serializers.PrimaryKeyRelatedField(
+        queryset=Region.objects.all(), required=False, allow_null=True
+    )
 
     class Meta:
         model = District
         fields = ("id", "name", "region", "mahallas")
         extra_kwargs = {
             "id": {"required": False},
-            "region": {"required": False},
         }
 
     def create(self, validated_data):
         """Create district with nested mahallas"""
         mahallas_data = validated_data.pop("mahallas", [])
+
+        # Ensure region is provided for standalone district creation
+        if "region" not in validated_data or validated_data["region"] is None:
+            raise serializers.ValidationError(
+                {"region": "Region is required when creating a district"}
+            )
+
         district = District.objects.create(**validated_data)
 
         for mahalla_data in mahallas_data:

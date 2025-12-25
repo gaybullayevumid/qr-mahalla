@@ -18,10 +18,6 @@ class User(AbstractBaseUser, PermissionsMixin):
 
     first_name = models.CharField(max_length=100, blank=True, verbose_name="First name")
     last_name = models.CharField(max_length=100, blank=True, verbose_name="Last name")
-    passport_id = models.CharField(
-        max_length=20, blank=True, verbose_name="Passport ID"
-    )
-    address = models.TextField(blank=True, verbose_name="Address")
 
     role = models.CharField(
         max_length=20, choices=ROLE_CHOICES, default="user", verbose_name="Role"

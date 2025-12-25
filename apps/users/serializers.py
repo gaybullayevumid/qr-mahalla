@@ -66,8 +66,17 @@ class HouseNestedSerializer(serializers.Serializer):
         return data
 
 
+class UserMinimalSerializer(serializers.ModelSerializer):
+    """Minimal user info - faqat ism, familiya, telefon (QR scan uchun)"""
+
+    class Meta:
+        model = User
+        fields = ("id", "phone", "first_name", "last_name")
+        read_only_fields = ("id", "phone", "first_name", "last_name")
+
+
 class UserListSerializer(serializers.ModelSerializer):
-    """User list serializer with houses - supports nested house CRUD"""
+    """User list serializer with houses - role-based fields"""
 
     houses = serializers.SerializerMethodField()
 
@@ -78,8 +87,6 @@ class UserListSerializer(serializers.ModelSerializer):
             "phone",
             "first_name",
             "last_name",
-            "passport_id",
-            "address",
             "role",
             "is_verified",
             "houses",
@@ -87,9 +94,24 @@ class UserListSerializer(serializers.ModelSerializer):
         read_only_fields = ("id",)
 
     def get_houses(self, obj):
-        """Get all houses owned by this user with their scanned QR codes"""
+        """Get all houses owned by this user with their scanned QR codes - role-based"""
         from apps.houses.models import House
         from apps.qrcodes.models import QRCode
+
+        request = self.context.get("request")
+
+        # Agar request yo'q yoki user authenticated emas - houses ko'rsatmaymiz
+        if not request or not request.user or not request.user.is_authenticated:
+            return []
+
+        user_role = getattr(request.user, "role", "user")
+
+        # Admin va government barcha uylarni ko'radi
+        if user_role in ["super_admin", "government", "mahalla_admin"]:
+            pass  # Houses ko'rsatiladi
+        # Oddiy user faqat o'z uylarini ko'radi
+        elif user_role == "user" and obj.id != request.user.id:
+            return []
 
         houses = House.objects.filter(owner=obj).select_related(
             "mahalla__district__region"
@@ -118,6 +140,54 @@ class UserListSerializer(serializers.ModelSerializer):
 
         return house_list
 
+    def to_representation(self, instance):
+        """Role-based field filtering"""
+        request = self.context.get("request")
+
+        # Avval to'liq ma'lumot olamiz
+        data = super().to_representation(instance)
+
+        if (
+            not request
+            or not hasattr(request, "user")
+            or not request.user.is_authenticated
+        ):
+            # Non-authenticated users: faqat minimal ma'lumot
+            return {
+                "id": data.get("id"),
+                "phone": data.get("phone"),
+                "first_name": data.get("first_name"),
+                "last_name": data.get("last_name"),
+            }
+
+        user_role = getattr(request.user, "role", "user")
+
+        # Admin, government, mahalla_admin: barcha ma'lumotlar
+        if user_role in ["super_admin", "government", "mahalla_admin"]:
+            return data
+
+        # Oddiy user: faqat o'zini to'liq ko'radi
+        if user_role == "user":
+            if instance.id == request.user.id:
+                # O'z ma'lumotlari - hammasi
+                return data
+            else:
+                # Boshqa userlar - minimal
+                return {
+                    "id": data.get("id"),
+                    "phone": data.get("phone"),
+                    "first_name": data.get("first_name"),
+                    "last_name": data.get("last_name"),
+                }
+
+        # Default: minimal
+        return {
+            "id": data.get("id"),
+            "phone": data.get("phone"),
+            "first_name": data.get("first_name"),
+            "last_name": data.get("last_name"),
+        }
+
 
 class UserCreateUpdateSerializer(serializers.ModelSerializer):
     """Serializer for creating/updating users with nested houses"""
@@ -131,8 +201,6 @@ class UserCreateUpdateSerializer(serializers.ModelSerializer):
             "phone",
             "first_name",
             "last_name",
-            "passport_id",
-            "address",
             "role",
             "houses",
         )

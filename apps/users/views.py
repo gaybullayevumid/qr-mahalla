@@ -9,7 +9,12 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenRefreshView as BaseTokenRefreshView
 
 from .models import User, PhoneOTP, UserSession
-from .serializers import AuthSerializer, UserListSerializer, UserCreateUpdateSerializer
+from .serializers import (
+    AuthSerializer,
+    UserListSerializer,
+    UserCreateUpdateSerializer,
+    UserMinimalSerializer,
+)
 from .services import send_sms
 
 
@@ -477,7 +482,7 @@ class CustomTokenRefreshView(BaseTokenRefreshView):
 
 
 class UserViewSet(ModelViewSet):
-    """CRUD viewset for users with their houses"""
+    """CRUD viewset for users with their houses - role-based access"""
 
     queryset = User.objects.prefetch_related("houses__mahalla__district__region").all()
     permission_classes = [IsAuthenticated]
@@ -487,6 +492,12 @@ class UserViewSet(ModelViewSet):
         if self.action in ["create", "update", "partial_update"]:
             return UserCreateUpdateSerializer
         return UserListSerializer
+
+    def get_serializer_context(self):
+        """Add request to serializer context for role-based filtering"""
+        context = super().get_serializer_context()
+        context["request"] = self.request
+        return context
 
     def get_queryset(self):
         """Filter users based on role"""
@@ -515,8 +526,42 @@ class UserViewSet(ModelViewSet):
         return User.objects.all().prefetch_related("houses__mahalla__district__region")
 
     def get_permissions(self):
-        """Users can view their own data and update it, admins can do CRUD"""
-        if self.action in ["list", "retrieve", "update", "partial_update"]:
+        """Role-based permissions"""
+        if self.action in ["list", "retrieve"]:
+            # Hamma authenticated userlar ko'rishi mumkin (lekin ma'lumot filterlangan)
             return [IsAuthenticated()]
-        # Only admins can create and delete users
+
+        if self.action in ["update", "partial_update"]:
+            # Userlar o'zini edit qilishi mumkin, adminlar hammani
+            return [IsAuthenticated()]
+
+        # Create va delete faqat adminlar uchun
         return [IsAuthenticated()]
+
+    def update(self, request, *args, **kwargs):
+        """Update with permission check"""
+        instance = self.get_object()
+        user = request.user
+
+        # Oddiy user faqat o'zini edit qilishi mumkin
+        if user.role == "user" and instance.id != user.id:
+            return Response(
+                {"error": "You can only update your own profile"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        return super().update(request, *args, **kwargs)
+
+    def partial_update(self, request, *args, **kwargs):
+        """Partial update with permission check"""
+        instance = self.get_object()
+        user = request.user
+
+        # Oddiy user faqat o'zini edit qilishi mumkin
+        if user.role == "user" and instance.id != user.id:
+            return Response(
+                {"error": "You can only update your own profile"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        return super().partial_update(request, *args, **kwargs)

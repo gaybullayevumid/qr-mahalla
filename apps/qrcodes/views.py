@@ -34,18 +34,18 @@ def _get_location_data(house):
 
 def _get_owner_data(owner, user_role="anonymous", is_owner=False):
     """Helper to format owner data based on access level - role-based"""
-    # Minimal ma'lumot (non-authenticated yoki oddiy user)
+    # Minimal ma'lumot (non-authenticated yoki oddiy user) - faqat ism, familiya, telefon
     data = {
-        "id": owner.id,
         "first_name": owner.first_name,
         "last_name": owner.last_name,
         "phone": owner.phone,
     }
 
-    # To'liq ma'lumot (admin yoki o'z uy egasi)
+    # To'liq ma'lumot (admin yoki o'z uy egasi) - id, role, is_verified qo'shiladi
     if user_role in ["super_admin", "government", "mahalla_admin"] or is_owner:
         data.update(
             {
+                "id": owner.id,
                 "role": owner.role,
                 "is_verified": owner.is_verified,
             }
@@ -108,53 +108,75 @@ class QRCodeScanAPIView(APIView):
                     if user_role != "anonymous"
                     else "Bu uyning egasi yo'q."
                 ),
-                "qr": {
-                    "id": qr.id,
-                    "uuid": qr.uuid,
-                },
-                "house": {
-                    "id": qr.house.id,
-                    "address": qr.house.address,
-                    "house_number": qr.house.house_number,
-                    **_get_location_data(qr.house),
-                },
                 "owner": None,
             }
 
-            # Add claim URL only for authenticated users
-            if user_role != "anonymous":
-                response_data["can_claim"] = True
-                response_data["claim_url"] = f"/api/qrcodes/claim/{uuid}/"
-            else:
+            # Auth bo'lmagan user uchun minimal house/qr ma'lumot
+            if user_role == "anonymous":
+                response_data["qr"] = {
+                    "uuid": qr.uuid,
+                }
+                response_data["house"] = {
+                    "address": qr.house.address,
+                    "house_number": qr.house.house_number,
+                    **_get_location_data(qr.house),
+                }
                 response_data["can_claim"] = False
                 response_data["message"] = (
                     "Bu uyning egasi yo'q. Claim qilish uchun login qiling."
                 )
-
-            return Response(response_data)
-
-        # House has owner - return owner info based on role
-        return Response(
-            {
-                "status": "claimed",
-                "qr": {
+            else:
+                # Authenticated user uchun to'liq ma'lumot (id va claim URL bilan)
+                response_data["qr"] = {
                     "id": qr.id,
                     "uuid": qr.uuid,
-                },
-                "house": {
+                }
+                response_data["house"] = {
                     "id": qr.house.id,
                     "address": qr.house.address,
                     "house_number": qr.house.house_number,
                     **_get_location_data(qr.house),
-                },
-                "owner": _get_owner_data(qr.house.owner, user_role, is_owner),
-                "is_owner": is_owner,
+                }
+                response_data["can_claim"] = True
+                response_data["claim_url"] = f"/api/qrcodes/claim/{uuid}/"
+
+            return Response(response_data)
+
+        # House has owner - return owner info based on role
+        response_data = {
+            "status": "claimed",
+            "owner": _get_owner_data(qr.house.owner, user_role, is_owner),
+            "is_owner": is_owner,
+        }
+
+        # Auth bo'lmagan user uchun minimal house/qr ma'lumot
+        if user_role == "anonymous":
+            response_data["qr"] = {
+                "uuid": qr.uuid,
             }
-        )
+            response_data["house"] = {
+                "address": qr.house.address,
+                "house_number": qr.house.house_number,
+                **_get_location_data(qr.house),
+            }
+        else:
+            # Authenticated user uchun to'liq ma'lumot (id bilan)
+            response_data["qr"] = {
+                "id": qr.id,
+                "uuid": qr.uuid,
+            }
+            response_data["house"] = {
+                "id": qr.house.id,
+                "address": qr.house.address,
+                "house_number": qr.house.house_number,
+                **_get_location_data(qr.house),
+            }
+
+        return Response(response_data)
 
 
 class ScanQRCodeView(APIView):
-    """Scan QR code by UUID - Main endpoint for all users"""
+    """Scan QR code by UUID - Authenticated users uchun (claim qilish uchun)"""
 
     permission_classes = [IsAuthenticated]
 
@@ -185,28 +207,38 @@ class ScanQRCodeView(APIView):
             return Response(
                 {
                     "status": "unclaimed",
-                    "message": "This house has no owner yet. You can claim it.",
+                    "message": "Bu uyning egasi yo'q. Siz claim qilishingiz mumkin.",
+                    "can_claim": True,
+                    "claim_url": f"/api/qrcodes/claim/{uuid}/",
                     "qr": {
                         "id": qr.id,
                         "uuid": qr.uuid,
                     },
                     "house": {
+                        "id": qr.house.id,
                         "address": qr.house.address,
-                        "number": qr.house.house_number,
+                        "house_number": qr.house.house_number,
                         **_get_location_data(qr.house),
                     },
                 }
             )
 
+        # Claimed house - owner ma'lumoti rol bo'yicha
         return Response(
             {
                 "status": "claimed",
-                "owner": _get_owner_data(qr.house.owner, user_role, is_owner),
+                "qr": {
+                    "id": qr.id,
+                    "uuid": qr.uuid,
+                },
                 "house": {
+                    "id": qr.house.id,
                     "address": qr.house.address,
-                    "number": qr.house.house_number,
+                    "house_number": qr.house.house_number,
                     **_get_location_data(qr.house),
                 },
+                "owner": _get_owner_data(qr.house.owner, user_role, is_owner),
+                "is_owner": is_owner,
             }
         )
 
@@ -298,7 +330,7 @@ class ClaimHouseView(APIView):
         # Check if already claimed
         if qr.house.owner:
             return Response(
-                {"error": "This house is already claimed"},
+                {"error": "Bu uy allaqachon biriktirilgan"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -310,8 +342,6 @@ class ClaimHouseView(APIView):
         user = request.user
         user.first_name = serializer.validated_data["first_name"]
         user.last_name = serializer.validated_data["last_name"]
-        user.passport_id = serializer.validated_data["passport_id"]
-        user.address = serializer.validated_data["address"]
         # Don't change role - user stays as "user"
         user.save()
 

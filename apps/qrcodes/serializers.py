@@ -41,5 +41,3 @@ class QRCodeClaimSerializer(serializers.Serializer):
 
     first_name = serializers.CharField(max_length=100)
     last_name = serializers.CharField(max_length=100)
-    passport_id = serializers.CharField(max_length=20)
-    address = serializers.CharField(max_length=255)

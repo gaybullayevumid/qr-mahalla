@@ -5,9 +5,12 @@ from .views import (
     QRCodeListAPIView,
     QRCodeCreateAPIView,
     QRCodeDetailAPIView,
+    QRCodeScanAPIView,
 )
 
 urlpatterns = [
+    # QR Scan endpoint (POST with UUID) - AllowAny
+    path("scan/", QRCodeScanAPIView.as_view(), name="qr-scan-post"),
     # Admin/Management endpoints
     path("", QRCodeListAPIView.as_view(), name="qr-list"),
     path("create/", QRCodeCreateAPIView.as_view(), name="qr-create"),

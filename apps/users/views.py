@@ -213,8 +213,6 @@ class AuthAPIView(APIView):
                     "role": user.role,
                     "first_name": user.first_name,
                     "last_name": user.last_name,
-                    "passport_id": user.passport_id,
-                    "address": user.address,
                     "is_verified": user.is_verified,
                     "houses": house_list,
                 },
@@ -292,8 +290,6 @@ class UserProfileAPIView(APIView):
             "role": user.role,
             "first_name": user.first_name,
             "last_name": user.last_name,
-            "passport_id": user.passport_id,
-            "address": user.address,
             "is_verified": user.is_verified,
             "houses": house_list,
         }
@@ -311,7 +307,7 @@ class UserProfileAPIView(APIView):
         user = request.user
 
         # Update allowed fields
-        allowed_fields = ["first_name", "last_name", "passport_id", "address"]
+        allowed_fields = ["first_name", "last_name"]
 
         for field in allowed_fields:
             if field in request.data:

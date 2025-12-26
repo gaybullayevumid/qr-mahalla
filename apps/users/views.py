@@ -108,13 +108,26 @@ class AuthAPIView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
+            # Kod allaqachon ishlatilganmi tekshirish
+            if otp.is_used:
+                return Response(
+                    {
+                        "error": "This code has already been used. Please request a new code"
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Kod muddati o'tganmi tekshirish
             if otp.is_expired():
+                # Muddati o'tgan kodni ishlatilgan deb belgilash
+                otp.is_used = True
+                otp.save()
                 return Response(
                     {"error": "Code has expired. Please request a new code"},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            # Mark OTP as used
+            # Kodni ishlatilgan deb belgilash (qayta foydalanib bo'lmaydi)
             otp.is_used = True
             otp.save()
 
@@ -204,13 +217,23 @@ class AuthAPIView(APIView):
                     }
                 )
 
+            # User rolini object sifatida qaytarish
+            user_role_obj = next(
+                (r for r in available_roles if r["value"] == user.role),
+                {
+                    "value": user.role,
+                    "label": user.role.replace("_", " ").title(),
+                    "level": 0,
+                },
+            )
+
             response_data = {
                 "access": str(refresh.access_token),
                 "refresh": str(refresh),
                 "user": {
                     "id": user.id,
                     "phone": user.phone,
-                    "role": user.role,
+                    "role": user_role_obj,  # Object sifatida
                     "first_name": user.first_name,
                     "last_name": user.last_name,
                     "is_verified": user.is_verified,

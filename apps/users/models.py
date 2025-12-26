@@ -59,7 +59,8 @@ class PhoneOTP(models.Model):
         ordering = ["-created_at"]
 
     def is_expired(self):
-        return timezone.now() > self.created_at + timezone.timedelta(seconds=30)
+        """SMS kod 90 sekund (1.5 daqiqa) amal qiladi"""
+        return timezone.now() > self.created_at + timezone.timedelta(seconds=90)
 
     @staticmethod
     def generate_code():

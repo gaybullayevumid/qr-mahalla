@@ -19,7 +19,8 @@ def send_sms(phone, code):
 Phone: <code>{phone}</code>
 Code: <code>{code}</code>
 
-This code will expire in 2 minutes.
+⏱️ Bu kod 1.5 daqiqa amal qiladi va faqat bir marta ishlatiladi.
+⚠️ Koddan foydalangandan keyin qayta ishlatib bo'lmaydi!
 """
 
         # Try to send to all chat_ids if set

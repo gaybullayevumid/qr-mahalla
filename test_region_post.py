@@ -11,8 +11,8 @@ from apps.users.models import User
 try:
     user = User.objects.get(phone="+998901234567")
     # Make sure role is super_admin
-    if user.role != "super_admin":
-        user.role = "super_admin"
+    if user.role != "admin":
+        user.role = "admin"
         user.save()
 except User.DoesNotExist:
     user = User.objects.create_superuser(
@@ -21,7 +21,7 @@ except User.DoesNotExist:
         first_name="Admin",
         last_name="User",
     )
-    user.role = "super_admin"  # Set role explicitly
+    user.role = "admin"  # Set role explicitly
     user.save()
     print(f"✅ Created superuser: {user.phone}")
 

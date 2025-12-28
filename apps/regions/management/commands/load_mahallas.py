@@ -7,25 +7,23 @@ class Command(BaseCommand):
     help = "Load sample mahallas (neighborhoods) into database"
 
     def handle(self, *args, **options):
-        # Create or get super admin user
-        super_admin, created = User.objects.get_or_create(
+        # Create or get admin user
+        admin_user, created = User.objects.get_or_create(
             phone="+998930850955",
             defaults={
-                "role": "super_admin",
-                "first_name": "Super",
-                "last_name": "Admin",
+                "role": "admin",
+                "first_name": "Admin",
+                "last_name": "User",
                 "is_verified": True,
             },
         )
 
         if created:
             self.stdout.write(
-                self.style.SUCCESS(f"✓ Created super admin: {super_admin.phone}")
+                self.style.SUCCESS(f"✓ Created admin: {admin_user.phone}")
             )
         else:
-            self.stdout.write(
-                self.style.WARNING(f"- Super admin exists: {super_admin.phone}")
-            )
+            self.stdout.write(self.style.WARNING(f"- Admin exists: {admin_user.phone}"))
 
         # Sample mahallas data for different regions
         mahallas_data = [
@@ -73,7 +71,7 @@ class Command(BaseCommand):
                     mahalla, created = Mahalla.objects.get_or_create(
                         district=district,
                         name=mahalla_name,
-                        defaults={"admin": super_admin},
+                        defaults={"admin": admin_user},
                     )
 
                     if created:

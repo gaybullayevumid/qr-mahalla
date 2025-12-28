@@ -4,6 +4,7 @@ from io import BytesIO
 
 from django.db import models
 from django.core.files import File
+from django.conf import settings
 
 from apps.houses.models import House
 from apps.utils import GapFillingIDMixin
@@ -40,11 +41,28 @@ class QRCode(GapFillingIDMixin, models.Model):
         if not self.image:
             self.generate_qr_image()
 
+    def get_qr_url(self):
+        """Get Telegram bot URL with QR code ID"""
+        # Format: https://t.me/qrmahallabot/start?startapp=QR_KEY_<uuid>
+        bot_username = getattr(settings, "TELEGRAM_BOT_USERNAME", "qrmahallabot")
+        return f"https://t.me/{bot_username}/start?startapp=QR_KEY_{self.uuid}"
+
     def generate_qr_image(self):
-        """Generate QR code image from UUID"""
-        qr = qrcode.make(self.uuid)
+        """Generate QR code image with Telegram bot URL"""
+        # Generate QR code with Telegram bot URL
+        qr_url = self.get_qr_url()
+        qr = qrcode.QRCode(
+            version=1,
+            error_correction=qrcode.constants.ERROR_CORRECT_L,
+            box_size=10,
+            border=4,
+        )
+        qr.add_data(qr_url)
+        qr.make(fit=True)
+
+        img = qr.make_image(fill_color="black", back_color="white")
         buffer = BytesIO()
-        qr.save(buffer, format="PNG")
+        img.save(buffer, format="PNG")
         self.image.save(f"{self.uuid}.png", File(buffer), save=True)
 
     def __str__(self):

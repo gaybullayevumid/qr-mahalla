@@ -10,8 +10,8 @@ from apps.users.models import User
 # Get superuser
 try:
     user = User.objects.get(phone="+998901234567")
-    if user.role != "super_admin":
-        user.role = "super_admin"
+    if user.role != "admin":
+        user.role = "admin"
         user.save()
 except User.DoesNotExist:
     user = User.objects.create_superuser(
@@ -20,7 +20,7 @@ except User.DoesNotExist:
         first_name="Admin",
         last_name="User",
     )
-    user.role = "super_admin"
+    user.role = "admin"
     user.save()
 
 client = APIClient()

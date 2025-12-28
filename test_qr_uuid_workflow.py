@@ -8,7 +8,7 @@ import json
 
 # Configuration
 BASE_URL = "http://192.168.0.158:8000"
-# Bu token regular user (role=user) uchun bo'lishi kerak
+# Bu token regular client (role=client) uchun bo'lishi kerak
 TOKEN = "YOUR_USER_TOKEN_HERE"  # Login qilib tokenni oling
 
 headers = {"Authorization": f"Bearer {TOKEN}", "Content-Type": "application/json"}

@@ -11,8 +11,8 @@ from apps.regions.models import Region
 # Get or create test superuser with super_admin role
 try:
     user = User.objects.get(phone="+998901234567")
-    if user.role != "super_admin":
-        user.role = "super_admin"
+    if user.role != "admin":
+        user.role = "admin"
         user.save()
 except User.DoesNotExist:
     user = User.objects.create_superuser(

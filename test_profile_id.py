@@ -15,7 +15,7 @@ except User.DoesNotExist:
         phone="+998991234567",
         first_name="Test",
         last_name="User",
-        role="user",
+        role="client",
         is_verified=True,
     )
 

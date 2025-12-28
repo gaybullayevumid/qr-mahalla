@@ -17,7 +17,7 @@ from .serializers import (
     MahallaCreateSerializer,
     MahallaNestedWriteSerializer,
 )
-from .permissions import IsSuperAdmin, IsAdminOrGovernment
+from .permissions import IsAdmin, IsAdminOrGov
 
 
 class RegionViewSet(ModelViewSet):
@@ -32,7 +32,7 @@ class RegionViewSet(ModelViewSet):
         """
         if self.action in ["list", "retrieve", "districts", "neighborhoods"]:
             return [IsAuthenticated()]
-        return [IsAdminOrGovernment()]
+        return [IsAdminOrGov()]
 
     def get_serializer_class(self):
         if self.action in ["create", "update", "partial_update"]:
@@ -100,7 +100,7 @@ class DistrictViewSet(ModelViewSet):
         """
         if self.action in ["list", "retrieve", "neighborhoods"]:
             return [IsAuthenticated()]
-        return [IsAdminOrGovernment()]
+        return [IsAdminOrGov()]
 
     def get_serializer_class(self):
         if self.action in ["create", "update", "partial_update"]:
@@ -142,7 +142,7 @@ class MahallaViewSet(ModelViewSet):
         """
         if self.action in ["list", "retrieve"]:
             return [IsAuthenticated()]
-        return [IsAdminOrGovernment()]
+        return [IsAdminOrGov()]
 
     def get_serializer_class(self):
         if self.action in ["create", "update", "partial_update"]:

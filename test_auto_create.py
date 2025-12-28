@@ -20,9 +20,9 @@ unclaimed = House.objects.filter(owner__isnull=True).first()
 print(f"\n🏠 Claiming house: {unclaimed.address} (ID: {unclaimed.id})")
 
 # Get a user to assign as owner
-user = User.objects.filter(role='user').first()
+user = User.objects.filter(role='client').first()
 if not user:
-    print("⚠️  No user with role 'user' found, using any user...")
+    print("⚠️  No user with role 'client' found, using any user...")
     user = User.objects.first()
 
 print(f"👤 Assigning to user: {user.phone}")

@@ -12,7 +12,11 @@ try:
     user = User.objects.get(phone=phone)
 except User.DoesNotExist:
     user = User.objects.create(
-        phone=phone, first_name="Auth", last_name="Test", role="user", is_verified=False
+        phone=phone,
+        first_name="Auth",
+        last_name="Test",
+        role="client",
+        is_verified=False,
     )
 
 # Create OTP code

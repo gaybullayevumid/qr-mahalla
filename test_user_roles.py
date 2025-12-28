@@ -21,10 +21,10 @@ for user in users:
     print(f"Role: {user.role}")
     print(f"Is authenticated: {user.is_authenticated}")
 
-# Find a regular user
-regular_users = User.objects.filter(role="user")
+# Find a regular client
+regular_users = User.objects.filter(role="client")
 print(f"\n{'=' * 50}")
-print(f"Total regular users (role='user'): {regular_users.count()}")
+print(f"Total regular users (role='client'): {regular_users.count()}\")
 
 if regular_users.exists():
     user = regular_users.first()
@@ -33,4 +33,4 @@ if regular_users.exists():
     print(f"  Role: {user.role}")
     print(f"  Should be able to GET /api/regions/mahallas/")
 else:
-    print("\n⚠️  No regular users found with role='user'")
+    print("\n⚠️  No regular users found with role='client'")

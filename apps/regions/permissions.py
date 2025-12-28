@@ -1,30 +1,30 @@
 from rest_framework.permissions import BasePermission
 
 
-class IsSuperAdmin(BasePermission):
+class IsAdmin(BasePermission):
     def has_permission(self, request, view):
         return (
             request.user.is_authenticated
             and hasattr(request.user, "role")
-            and request.user.role == "super_admin"
+            and request.user.role == "admin"
         )
 
 
-class IsMahallaAdmin(BasePermission):
+class IsLeader(BasePermission):
     def has_permission(self, request, view):
         return (
             request.user.is_authenticated
             and hasattr(request.user, "role")
-            and request.user.role == "mahalla_admin"
+            and request.user.role == "leader"
         )
 
 
-class IsAdminOrGovernment(BasePermission):
-    """Only super_admin, mahalla_admin, and government can access"""
+class IsAdminOrGov(BasePermission):
+    """Only admin, leader, and gov can access"""
 
     def has_permission(self, request, view):
         return (
             request.user.is_authenticated
             and hasattr(request.user, "role")
-            and request.user.role in ["super_admin", "mahalla_admin", "government"]
+            and request.user.role in ["admin", "leader", "gov"]
         )

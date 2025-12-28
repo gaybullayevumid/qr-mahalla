@@ -7,11 +7,12 @@ class QRCodeSerializer(serializers.ModelSerializer):
 
     is_claimed = serializers.SerializerMethodField()
     owner = serializers.SerializerMethodField()
+    qr_url = serializers.SerializerMethodField()
 
     class Meta:
         model = QRCode
-        fields = ["id", "uuid", "image", "is_claimed", "owner", "created_at"]
-        read_only_fields = ["id", "uuid", "image", "created_at"]
+        fields = ["id", "uuid", "qr_url", "image", "is_claimed", "owner", "created_at"]
+        read_only_fields = ["id", "uuid", "qr_url", "image", "created_at"]
 
     def get_is_claimed(self, obj):
         return obj.house.owner is not None
@@ -21,6 +22,10 @@ class QRCodeSerializer(serializers.ModelSerializer):
         if obj.house.owner:
             return obj.house.owner.id
         return None
+
+    def get_qr_url(self, obj):
+        """Return Telegram bot URL for QR code"""
+        return obj.get_qr_url()
 
 
 class QRCodeCreateSerializer(serializers.ModelSerializer):

@@ -22,6 +22,7 @@ ALLOWED_HOSTS = ["*"]
 TELEGRAM_BOT_TOKEN = os.getenv(
     "TELEGRAM_BOT_TOKEN", "8443848056:AAFSUPSsd4OusBcmC10KODDzxbRi3VfSwdY"
 )
+TELEGRAM_BOT_USERNAME = os.getenv("TELEGRAM_BOT_USERNAME", "qrmahallabot")
 # Multiple chat IDs separated by comma
 TELEGRAM_CHAT_IDS = os.getenv("TELEGRAM_CHAT_IDS", "8055309446,5323321097").split(",")
 

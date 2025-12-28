@@ -136,7 +136,7 @@ class AuthAPIView(APIView):
                 phone=phone,
                 defaults={
                     "is_verified": True,
-                    "role": "user",
+                    "role": "client",
                 },
             )
 
@@ -168,23 +168,28 @@ class AuthAPIView(APIView):
             # Get all available roles
             available_roles = [
                 {
-                    "value": "super_admin",
-                    "label": "Super Admin",
+                    "value": "admin",
+                    "label": "Admin",
                     "level": 4,
                 },
                 {
-                    "value": "government",
-                    "label": "Government Officer",
+                    "value": "gov",
+                    "label": "Government",
                     "level": 3,
                 },
                 {
-                    "value": "mahalla_admin",
-                    "label": "Neighborhood Admin",
+                    "value": "leader",
+                    "label": "Leader",
                     "level": 2,
                 },
                 {
-                    "value": "user",
-                    "label": "User",
+                    "value": "client",
+                    "label": "Client",
+                    "level": 1,
+                },
+                {
+                    "value": "agent",
+                    "label": "Agent",
                     "level": 1,
                 },
             ]
@@ -444,8 +449,8 @@ class UserRolesAPIView(APIView):
     def get(self, request):
         roles = [
             {
-                "value": "super_admin",
-                "label": "Super Admin",
+                "value": "admin",
+                "label": "Admin",
                 "description": "Tizimning eng yuqori darajadagi administratori",
                 "permissions": [
                     "Barcha CRUD operatsiyalar",
@@ -456,8 +461,8 @@ class UserRolesAPIView(APIView):
                 "level": 4,
             },
             {
-                "value": "government",
-                "label": "Government Officer",
+                "value": "gov",
+                "label": "Government",
                 "description": "Hukumat xodimi",
                 "permissions": [
                     "Barcha regionlar, tumanlar, mahallalarni ko'rish va yaratish",
@@ -467,8 +472,8 @@ class UserRolesAPIView(APIView):
                 "level": 3,
             },
             {
-                "value": "mahalla_admin",
-                "label": "Neighborhood Admin",
+                "value": "leader",
+                "label": "Leader",
                 "description": "Mahalla administratori",
                 "permissions": [
                     "Faqat o'z mahallasidagi ma'lumotlarni ko'rish",
@@ -477,8 +482,8 @@ class UserRolesAPIView(APIView):
                 "level": 2,
             },
             {
-                "value": "user",
-                "label": "User",
+                "value": "client",
+                "label": "Client",
                 "description": "Oddiy foydalanuvchi va uy egasi",
                 "permissions": [
                     "QR kod skanerlash",
@@ -488,6 +493,16 @@ class UserRolesAPIView(APIView):
                 ],
                 "level": 1,
                 "default": True,
+            },
+            {
+                "value": "agent",
+                "label": "Agent",
+                "description": "Agent foydalanuvchi",
+                "permissions": [
+                    "QR kod skanerlash",
+                    "Ma'lumotlarni ko'rish",
+                ],
+                "level": 1,
             },
         ]
 
@@ -526,14 +541,14 @@ class UserViewSet(ModelViewSet):
         if not role:
             return User.objects.none()
 
-        # Regular users see only themselves
-        if role == "user":
+        # Regular clients see only themselves
+        if role == "client":
             return User.objects.filter(id=user.id).prefetch_related(
                 "houses__mahalla__district__region"
             )
 
-        # Mahalla admin sees users in their mahalla
-        if role == "mahalla_admin" and hasattr(user, "mahalla"):
+        # Leader (mahalla admin) sees users in their mahalla
+        if role == "leader" and hasattr(user, "mahalla"):
             # Get users who own houses in this mahalla
             return (
                 User.objects.filter(houses__mahalla=user.mahalla)
@@ -562,8 +577,8 @@ class UserViewSet(ModelViewSet):
         instance = self.get_object()
         user = request.user
 
-        # Oddiy user faqat o'zini edit qilishi mumkin
-        if user.role == "user" and instance.id != user.id:
+        # Oddiy client faqat o'zini edit qilishi mumkin
+        if user.role == "client" and instance.id != user.id:
             return Response(
                 {"error": "You can only update your own profile"},
                 status=status.HTTP_403_FORBIDDEN,
@@ -576,8 +591,8 @@ class UserViewSet(ModelViewSet):
         instance = self.get_object()
         user = request.user
 
-        # Oddiy user faqat o'zini edit qilishi mumkin
-        if user.role == "user" and instance.id != user.id:
+        # Oddiy client faqat o'zini edit qilishi mumkin
+        if user.role == "client" and instance.id != user.id:
             return Response(
                 {"error": "You can only update your own profile"},
                 status=status.HTTP_403_FORBIDDEN,

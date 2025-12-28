@@ -25,7 +25,7 @@ if not mahalla:
 
 # Create user with house
 user, created = User.objects.get_or_create(
-    phone="+998991112233", defaults={"first_name": "Test", "role": "user"}
+    phone="+998991112233", defaults={"first_name": "Test", "role": "client"}
 )
 
 if created:

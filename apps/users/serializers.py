@@ -104,13 +104,13 @@ class UserListSerializer(serializers.ModelSerializer):
         if not request or not request.user or not request.user.is_authenticated:
             return []
 
-        user_role = getattr(request.user, "role", "user")
+        user_role = getattr(request.user, "role", "client")
 
         # Admin va government barcha uylarni ko'radi
-        if user_role in ["super_admin", "government", "mahalla_admin"]:
+        if user_role in ["admin", "gov", "leader"]:
             pass  # Houses ko'rsatiladi
-        # Oddiy user faqat o'z uylarini ko'radi
-        elif user_role == "user" and obj.id != request.user.id:
+        # Oddiy client faqat o'z uylarini ko'radi
+        elif user_role == "client" and obj.id != request.user.id:
             return []
 
         houses = House.objects.filter(owner=obj).select_related(
@@ -160,14 +160,14 @@ class UserListSerializer(serializers.ModelSerializer):
                 "last_name": data.get("last_name"),
             }
 
-        user_role = getattr(request.user, "role", "user")
+        user_role = getattr(request.user, "role", "client")
 
-        # Admin, government, mahalla_admin: barcha ma'lumotlar
-        if user_role in ["super_admin", "government", "mahalla_admin"]:
+        # Admin, gov, leader: barcha ma'lumotlar
+        if user_role in ["admin", "gov", "leader"]:
             return data
 
-        # Oddiy user: faqat o'zini to'liq ko'radi
-        if user_role == "user":
+        # Oddiy client: faqat o'zini to'liq ko'radi
+        if user_role == "client":
             if instance.id == request.user.id:
                 # O'z ma'lumotlari - hammasi
                 return data
@@ -239,7 +239,7 @@ class UserCreateUpdateSerializer(serializers.ModelSerializer):
 
         # Set default role if not provided
         if "role" not in validated_data:
-            validated_data["role"] = "user"
+            validated_data["role"] = "client"
 
         # Ensure phone is provided for user creation
         if "phone" not in validated_data:

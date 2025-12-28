@@ -35,13 +35,13 @@ class HouseViewSet(ModelViewSet):
 
         queryset = House.objects.select_related("owner", "mahalla__district__region")
 
-        # Users see their own houses
-        if role == "user":
+        # Clients see their own houses
+        if role == "client":
             return queryset.filter(owner=user)
 
-        # Mahalla admin sees their neighborhood
-        if role == "mahalla_admin" and hasattr(user, "mahalla"):
+        # Leader (mahalla admin) sees their neighborhood
+        if role == "leader" and hasattr(user, "mahalla"):
             return queryset.filter(mahalla=user.mahalla)
 
-        # Super admin and government see all
+        # Admin and government see all
         return queryset

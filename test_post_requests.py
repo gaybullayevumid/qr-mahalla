@@ -167,7 +167,7 @@ def test_create_user(token):
         "phone": "+998901234999",
         "first_name": "Test",
         "last_name": "User",
-        "role": "user",
+        "role": "client",
         "houses": [],
     }
 

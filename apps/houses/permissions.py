@@ -3,9 +3,9 @@ from rest_framework.permissions import BasePermission
 
 class HouseAccessPermission(BasePermission):
     """
-    Super admin → all houses
-    Neighborhood admin → only own neighborhood
-    User/Owner → only own house
+    Admin → all houses
+    Leader (mahalla admin) → only own neighborhood
+    Client/Agent → only own house
     """
 
     def has_object_permission(self, request, view, obj):
@@ -14,17 +14,17 @@ class HouseAccessPermission(BasePermission):
         if not user.is_authenticated or not hasattr(user, 'role'):
             return False
 
-        if user.role == "super_admin":
+        if user.role == "admin":
             return True
 
-        if user.role == "government":
+        if user.role == "gov":
             return True
 
-        if user.role == "mahalla_admin":
+        if user.role == "leader":
             return hasattr(user, "mahalla") and obj.mahalla == user.mahalla
 
-        # Regular users and owners can access their own houses
-        if user.role in ["user", "owner"]:
+        # Regular clients and agents can access their own houses
+        if user.role in ["client", "agent"]:
             return obj.owner == user
 
         return False

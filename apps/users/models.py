@@ -8,10 +8,11 @@ from .managers import UserManager
 
 class User(AbstractBaseUser, PermissionsMixin):
     ROLE_CHOICES = (
-        ("super_admin", "Super Admin"),
-        ("government", "Government Officer"),
-        ("mahalla_admin", "Neighborhood Admin"),
-        ("user", "User"),
+        ("admin", "Admin"),
+        ("gov", "Government"),
+        ("leader", "Leader"),
+        ("client", "Client"),
+        ("agent", "Agent"),
     )
 
     phone = models.CharField(max_length=15, unique=True, verbose_name="Phone number")
@@ -20,7 +21,7 @@ class User(AbstractBaseUser, PermissionsMixin):
     last_name = models.CharField(max_length=100, blank=True, verbose_name="Last name")
 
     role = models.CharField(
-        max_length=20, choices=ROLE_CHOICES, default="user", verbose_name="Role"
+        max_length=20, choices=ROLE_CHOICES, default="client", verbose_name="Role"
     )
 
     scanned_qr_code = models.CharField(

@@ -27,7 +27,7 @@ else:
 
 # Try to update user 8
 print("\n2️⃣ PUT /api/users/list/8/")
-update_data = {"first_name": "Updated", "last_name": "User", "role": "user"}
+update_data = {"first_name": "Updated", "last_name": "User", "role": "client"}
 response = client.put("/api/users/list/8/", update_data, format="json")
 print(f"Status: {response.status_code}")
 if response.status_code == 200:
@@ -41,7 +41,7 @@ update_data = {
     "phone": "+998991234567",
     "first_name": "Updated",
     "last_name": "User",
-    "role": "user",
+    "role": "client",
 }
 response = client.put("/api/users/list/8/", update_data, format="json")
 print(f"Status: {response.status_code}")

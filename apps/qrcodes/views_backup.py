@@ -34,18 +34,18 @@ def _get_location_data(house):
 
 def _get_owner_data(owner, user_role="anonymous", is_owner=False):
     """Helper to format owner data based on access level - role-based"""
-    # Minimal ma'lumot (non-authenticated yoki oddiy user)
+    # Minimal ma'lumot (non-authenticated yoki oddiy user) - faqat ism, familiya, telefon
     data = {
-        "id": owner.id,
         "first_name": owner.first_name,
         "last_name": owner.last_name,
         "phone": owner.phone,
     }
 
-    # To'liq ma'lumot (admin yoki o'z uy egasi)
-    if user_role in ["admin", "gov", "leader"] or is_owner:
+    # To'liq ma'lumot (admin yoki o'z uy egasi) - id, role, is_verified qo'shiladi
+    if user_role in ["super_admin", "government", "mahalla_admin"] or is_owner:
         data.update(
             {
+                "id": owner.id,
                 "role": owner.role,
                 "is_verified": owner.is_verified,
             }
@@ -63,48 +63,12 @@ class QRCodeScanAPIView(APIView):
 
     permission_classes = [AllowAny]
 
-    def extract_uuid(self, data):
-        """Extract UUID from various input formats"""
-        if not data:
-            return None
-
-        data = str(data).strip()
-
-        # If it's a full URL (from phone camera scan)
-        if "t.me/" in data or "telegram.me/" in data:
-            # Extract from: https://t.me/qrmahallabot/start?startapp=QR_KEY_abc123def456
-            if "QR_KEY_" in data:
-                parts = data.split("QR_KEY_")
-                if len(parts) > 1:
-                    return parts[1].strip()
-
-        # If it's just the UUID (16 chars hex)
-        if len(data) == 16:
-            return data
-
-        return data
-
     def post(self, request):
-        raw_data = (
-            request.data.get("uuid")
-            or request.data.get("qr_code")
-            or request.data.get("url")
-        )
-
-        if not raw_data:
-            return Response(
-                {
-                    "error": "QR code data is required. Send 'uuid', 'qr_code', or 'url' parameter."
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        # Extract UUID from input
-        uuid = self.extract_uuid(raw_data)
+        uuid = request.data.get("uuid")
 
         if not uuid:
             return Response(
-                {"error": "Invalid QR code format"}, status=status.HTTP_400_BAD_REQUEST
+                {"error": "UUID is required"}, status=status.HTTP_400_BAD_REQUEST
             )
 
         # Find QR code
@@ -144,55 +108,75 @@ class QRCodeScanAPIView(APIView):
                     if user_role != "anonymous"
                     else "Bu uyning egasi yo'q."
                 ),
-                "qr": {
-                    "id": qr.id,
-                    "uuid": qr.uuid,
-                    "qr_url": qr.get_qr_url(),
-                },
-                "house": {
-                    "id": qr.house.id,
-                    "address": qr.house.address,
-                    "house_number": qr.house.house_number,
-                    **_get_location_data(qr.house),
-                },
                 "owner": None,
             }
 
-            # Add claim URL only for authenticated users
-            if user_role != "anonymous":
-                response_data["can_claim"] = True
-                response_data["claim_url"] = f"/api/qrcodes/claim/{uuid}/"
-            else:
+            # Auth bo'lmagan user uchun minimal house/qr ma'lumot
+            if user_role == "anonymous":
+                response_data["qr"] = {
+                    "uuid": qr.uuid,
+                }
+                response_data["house"] = {
+                    "address": qr.house.address,
+                    "house_number": qr.house.house_number,
+                    **_get_location_data(qr.house),
+                }
                 response_data["can_claim"] = False
                 response_data["message"] = (
                     "Bu uyning egasi yo'q. Claim qilish uchun login qiling."
                 )
-
-            return Response(response_data)
-
-        # House has owner - return owner info based on role
-        return Response(
-            {
-                "status": "claimed",
-                "qr": {
+            else:
+                # Authenticated user uchun to'liq ma'lumot (id va claim URL bilan)
+                response_data["qr"] = {
                     "id": qr.id,
                     "uuid": qr.uuid,
-                    "qr_url": qr.get_qr_url(),
-                },
-                "house": {
+                }
+                response_data["house"] = {
                     "id": qr.house.id,
                     "address": qr.house.address,
                     "house_number": qr.house.house_number,
                     **_get_location_data(qr.house),
-                },
-                "owner": _get_owner_data(qr.house.owner, user_role, is_owner),
-                "is_owner": is_owner,
+                }
+                response_data["can_claim"] = True
+                response_data["claim_url"] = f"/api/qrcodes/claim/{uuid}/"
+
+            return Response(response_data)
+
+        # House has owner - return owner info based on role
+        response_data = {
+            "status": "claimed",
+            "owner": _get_owner_data(qr.house.owner, user_role, is_owner),
+            "is_owner": is_owner,
+        }
+
+        # Auth bo'lmagan user uchun minimal house/qr ma'lumot
+        if user_role == "anonymous":
+            response_data["qr"] = {
+                "uuid": qr.uuid,
             }
-        )
+            response_data["house"] = {
+                "address": qr.house.address,
+                "house_number": qr.house.house_number,
+                **_get_location_data(qr.house),
+            }
+        else:
+            # Authenticated user uchun to'liq ma'lumot (id bilan)
+            response_data["qr"] = {
+                "id": qr.id,
+                "uuid": qr.uuid,
+            }
+            response_data["house"] = {
+                "id": qr.house.id,
+                "address": qr.house.address,
+                "house_number": qr.house.house_number,
+                **_get_location_data(qr.house),
+            }
+
+        return Response(response_data)
 
 
 class ScanQRCodeView(APIView):
-    """Scan QR code by UUID - Main endpoint for all users"""
+    """Scan QR code by UUID - Authenticated users uchun (claim qilish uchun)"""
 
     permission_classes = [IsAuthenticated]
 
@@ -215,7 +199,7 @@ class ScanQRCodeView(APIView):
         request.user.save(update_fields=["scanned_qr_code"])
 
         # Get user role
-        user_role = getattr(request.user, "role", "client")
+        user_role = getattr(request.user, "role", "user")
         is_owner = qr.house.owner == request.user if qr.house.owner else False
 
         # Unclaimed house - user can claim it
@@ -223,29 +207,38 @@ class ScanQRCodeView(APIView):
             return Response(
                 {
                     "status": "unclaimed",
-                    "message": "This house has no owner yet. You can claim it.",
+                    "message": "Bu uyning egasi yo'q. Siz claim qilishingiz mumkin.",
+                    "can_claim": True,
+                    "claim_url": f"/api/qrcodes/claim/{uuid}/",
                     "qr": {
                         "id": qr.id,
                         "uuid": qr.uuid,
-                        "qr_url": qr.get_qr_url(),
                     },
                     "house": {
+                        "id": qr.house.id,
                         "address": qr.house.address,
-                        "number": qr.house.house_number,
+                        "house_number": qr.house.house_number,
                         **_get_location_data(qr.house),
                     },
                 }
             )
 
+        # Claimed house - owner ma'lumoti rol bo'yicha
         return Response(
             {
                 "status": "claimed",
-                "owner": _get_owner_data(qr.house.owner, user_role, is_owner),
+                "qr": {
+                    "id": qr.id,
+                    "uuid": qr.uuid,
+                },
                 "house": {
+                    "id": qr.house.id,
                     "address": qr.house.address,
-                    "number": qr.house.house_number,
+                    "house_number": qr.house.house_number,
                     **_get_location_data(qr.house),
                 },
+                "owner": _get_owner_data(qr.house.owner, user_role, is_owner),
+                "is_owner": is_owner,
             }
         )
 
@@ -265,15 +258,15 @@ class QRCodeListAPIView(generics.ListAPIView):
 
         queryset = QRCode.objects.select_related("house__owner", "house__mahalla")
 
-        # Clients see only unclaimed houses
-        if role == "client":
+        # Users see only unclaimed houses
+        if role == "user":
             return queryset.filter(house__owner__isnull=True)
 
-        # Leader (mahalla admin) sees their neighborhood
-        if role == "leader" and hasattr(user, "mahalla"):
+        # Mahalla admin sees their neighborhood
+        if role == "mahalla_admin" and hasattr(user, "mahalla"):
             return queryset.filter(house__mahalla=user.mahalla)
 
-        # Admin and government see all
+        # Super admin and government see all
         return queryset
 
 
@@ -309,15 +302,15 @@ class QRCodeDetailAPIView(generics.RetrieveAPIView):
 
         queryset = QRCode.objects.select_related("house__owner", "house__mahalla")
 
-        # Regular clients see only their own houses (where they are owner)
-        if role == "client":
+        # Regular users see only their own houses (where they are owner)
+        if role == "user":
             return queryset.filter(house__owner=user)
 
-        # Leader (mahalla admin) sees their neighborhood
-        if role == "leader" and hasattr(user, "mahalla"):
+        # Mahalla admin sees their neighborhood
+        if role == "mahalla_admin" and hasattr(user, "mahalla"):
             return queryset.filter(house__mahalla=user.mahalla)
 
-        # Admin and government see all
+        # Super admin and government see all
         return queryset
 
 
@@ -337,7 +330,7 @@ class ClaimHouseView(APIView):
         # Check if already claimed
         if qr.house.owner:
             return Response(
-                {"error": "This house is already claimed"},
+                {"error": "Bu uy allaqachon biriktirilgan"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
@@ -345,11 +338,11 @@ class ClaimHouseView(APIView):
         serializer = QRCodeClaimSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        # Update user info (keep existing role - don't change role)
+        # Update user info (keep existing role - don't change to owner)
         user = request.user
         user.first_name = serializer.validated_data["first_name"]
         user.last_name = serializer.validated_data["last_name"]
-        # Role stays unchanged (client, agent, etc.)
+        # Don't change role - user stays as "user"
         user.save()
 
         # Assign house ownership
@@ -378,7 +371,6 @@ class ClaimHouseView(APIView):
                 "qr": {
                     "id": qr.id,
                     "uuid": qr.uuid,
-                    "qr_url": qr.get_qr_url(),
                 },
             }
         )

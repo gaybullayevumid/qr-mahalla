@@ -43,7 +43,7 @@ def _get_owner_data(owner, user_role="anonymous", is_owner=False):
     }
 
     # To'liq ma'lumot (admin yoki o'z uy egasi)
-    if user_role in ["admin", "gov", "leader"] or is_owner:
+    if user_role in ["super_admin", "government", "mahalla_admin"] or is_owner:
         data.update(
             {
                 "role": owner.role,
@@ -63,48 +63,12 @@ class QRCodeScanAPIView(APIView):
 
     permission_classes = [AllowAny]
 
-    def extract_uuid(self, data):
-        """Extract UUID from various input formats"""
-        if not data:
-            return None
-
-        data = str(data).strip()
-
-        # If it's a full URL (from phone camera scan)
-        if "t.me/" in data or "telegram.me/" in data:
-            # Extract from: https://t.me/qrmahallabot/start?startapp=QR_KEY_abc123def456
-            if "QR_KEY_" in data:
-                parts = data.split("QR_KEY_")
-                if len(parts) > 1:
-                    return parts[1].strip()
-
-        # If it's just the UUID (16 chars hex)
-        if len(data) == 16:
-            return data
-
-        return data
-
     def post(self, request):
-        raw_data = (
-            request.data.get("uuid")
-            or request.data.get("qr_code")
-            or request.data.get("url")
-        )
-
-        if not raw_data:
-            return Response(
-                {
-                    "error": "QR code data is required. Send 'uuid', 'qr_code', or 'url' parameter."
-                },
-                status=status.HTTP_400_BAD_REQUEST,
-            )
-
-        # Extract UUID from input
-        uuid = self.extract_uuid(raw_data)
+        uuid = request.data.get("uuid")
 
         if not uuid:
             return Response(
-                {"error": "Invalid QR code format"}, status=status.HTTP_400_BAD_REQUEST
+                {"error": "UUID is required"}, status=status.HTTP_400_BAD_REQUEST
             )
 
         # Find QR code
@@ -147,7 +111,6 @@ class QRCodeScanAPIView(APIView):
                 "qr": {
                     "id": qr.id,
                     "uuid": qr.uuid,
-                    "qr_url": qr.get_qr_url(),
                 },
                 "house": {
                     "id": qr.house.id,
@@ -177,7 +140,6 @@ class QRCodeScanAPIView(APIView):
                 "qr": {
                     "id": qr.id,
                     "uuid": qr.uuid,
-                    "qr_url": qr.get_qr_url(),
                 },
                 "house": {
                     "id": qr.house.id,
@@ -215,7 +177,7 @@ class ScanQRCodeView(APIView):
         request.user.save(update_fields=["scanned_qr_code"])
 
         # Get user role
-        user_role = getattr(request.user, "role", "client")
+        user_role = getattr(request.user, "role", "user")
         is_owner = qr.house.owner == request.user if qr.house.owner else False
 
         # Unclaimed house - user can claim it
@@ -227,7 +189,6 @@ class ScanQRCodeView(APIView):
                     "qr": {
                         "id": qr.id,
                         "uuid": qr.uuid,
-                        "qr_url": qr.get_qr_url(),
                     },
                     "house": {
                         "address": qr.house.address,
@@ -265,15 +226,15 @@ class QRCodeListAPIView(generics.ListAPIView):
 
         queryset = QRCode.objects.select_related("house__owner", "house__mahalla")
 
-        # Clients see only unclaimed houses
-        if role == "client":
+        # Users see only unclaimed houses
+        if role == "user":
             return queryset.filter(house__owner__isnull=True)
 
-        # Leader (mahalla admin) sees their neighborhood
-        if role == "leader" and hasattr(user, "mahalla"):
+        # Mahalla admin sees their neighborhood
+        if role == "mahalla_admin" and hasattr(user, "mahalla"):
             return queryset.filter(house__mahalla=user.mahalla)
 
-        # Admin and government see all
+        # Super admin and government see all
         return queryset
 
 
@@ -309,15 +270,15 @@ class QRCodeDetailAPIView(generics.RetrieveAPIView):
 
         queryset = QRCode.objects.select_related("house__owner", "house__mahalla")
 
-        # Regular clients see only their own houses (where they are owner)
-        if role == "client":
+        # Regular users see only their own houses (where they are owner)
+        if role == "user":
             return queryset.filter(house__owner=user)
 
-        # Leader (mahalla admin) sees their neighborhood
-        if role == "leader" and hasattr(user, "mahalla"):
+        # Mahalla admin sees their neighborhood
+        if role == "mahalla_admin" and hasattr(user, "mahalla"):
             return queryset.filter(house__mahalla=user.mahalla)
 
-        # Admin and government see all
+        # Super admin and government see all
         return queryset
 
 
@@ -345,11 +306,13 @@ class ClaimHouseView(APIView):
         serializer = QRCodeClaimSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        # Update user info (keep existing role - don't change role)
+        # Update user info (keep existing role - don't change to owner)
         user = request.user
         user.first_name = serializer.validated_data["first_name"]
         user.last_name = serializer.validated_data["last_name"]
-        # Role stays unchanged (client, agent, etc.)
+        user.passport_id = serializer.validated_data["passport_id"]
+        user.address = serializer.validated_data["address"]
+        # Don't change role - user stays as "user"
         user.save()
 
         # Assign house ownership
@@ -378,7 +341,6 @@ class ClaimHouseView(APIView):
                 "qr": {
                     "id": qr.id,
                     "uuid": qr.uuid,
-                    "qr_url": qr.get_qr_url(),
                 },
             }
         )

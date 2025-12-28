@@ -224,26 +224,33 @@ class ScanQRCodeView(APIView):
 
         # Get user role
         user_role = getattr(request.user, "role", "client")
-        is_owner = qr.house.owner == request.user if qr.house.owner else False
+        is_owner = False
+        if qr.house and qr.house.owner:
+            is_owner = qr.house.owner == request.user
 
-        # Unclaimed house - user can claim it
-        if not qr.house.owner:
-            return Response(
-                {
-                    "status": "unclaimed",
-                    "message": "This house has no owner yet. You can claim it.",
-                    "qr": {
-                        "id": qr.id,
-                        "uuid": qr.uuid,
-                        "qr_url": qr.get_qr_url(),
-                    },
-                    "house": {
-                        "address": qr.house.address,
-                        "number": qr.house.house_number,
-                        **_get_location_data(qr.house),
-                    },
+        # QR code has no house or house has no owner - user can claim it
+        if not qr.house or not qr.house.owner:
+            response_data = {
+                "status": "unclaimed",
+                "message": "This house has no owner yet. You can claim it.",
+                "qr": {
+                    "id": qr.id,
+                    "uuid": qr.uuid,
+                    "qr_url": qr.get_qr_url(),
+                },
+            }
+
+            # Add house info if exists
+            if qr.house:
+                response_data["house"] = {
+                    "address": qr.house.address,
+                    "number": qr.house.house_number,
+                    **_get_location_data(qr.house),
                 }
-            )
+            else:
+                response_data["house"] = None
+
+            return Response(response_data)
 
         return Response(
             {
@@ -319,9 +326,15 @@ class QRCodeDetailAPIView(generics.RetrieveAPIView):
 
         queryset = QRCode.objects.select_related("house__owner", "house__mahalla")
 
-        # Regular clients see only their own houses (where they are owner)
+        # Regular clients see unclaimed QR codes and their own houses
         if role == "client":
-            return queryset.filter(house__owner=user)
+            from django.db.models import Q
+
+            return queryset.filter(
+                Q(house__isnull=True)
+                | Q(house__owner__isnull=True)
+                | Q(house__owner=user)
+            )
 
         # Leader (mahalla admin) sees their neighborhood
         if role == "leader" and hasattr(user, "mahalla"):

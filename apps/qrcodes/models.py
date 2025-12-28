@@ -68,7 +68,8 @@ class QRCode(GapFillingIDMixin, models.Model):
         img = qr.make_image(fill_color="black", back_color="white")
         buffer = BytesIO()
         img.save(buffer, format="PNG")
-        self.image.save(f"{self.uuid}.png", File(buffer), save=True)
+        buffer.seek(0)  # Reset buffer position to beginning
+        self.image.save(f"{self.uuid}.png", File(buffer), save=False)
 
     def __str__(self):
         return f"QR #{self.id} - {self.uuid}"

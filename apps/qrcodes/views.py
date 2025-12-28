@@ -273,9 +273,11 @@ class QRCodeListAPIView(generics.ListAPIView):
 
         queryset = QRCode.objects.select_related("house__owner", "house__mahalla")
 
-        # Clients see only unclaimed houses
+        # Clients see only unclaimed QR codes (no house or no owner)
         if role == "client":
-            return queryset.filter(house__owner__isnull=True)
+            from django.db.models import Q
+
+            return queryset.filter(Q(house__isnull=True) | Q(house__owner__isnull=True))
 
         # Leader (mahalla admin) sees their neighborhood
         if role == "leader" and hasattr(user, "mahalla"):

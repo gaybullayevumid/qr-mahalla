@@ -15,11 +15,11 @@ class QRCodeSerializer(serializers.ModelSerializer):
         read_only_fields = ["id", "uuid", "qr_url", "image", "created_at"]
 
     def get_is_claimed(self, obj):
-        return obj.house.owner is not None
+        return bool(obj.house and obj.house.owner is not None)
 
     def get_owner(self, obj):
         """Return owner ID if house is claimed"""
-        if obj.house.owner:
+        if obj.house and obj.house.owner:
             return obj.house.owner.id
         return None
 

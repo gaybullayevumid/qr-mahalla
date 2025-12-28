@@ -18,7 +18,12 @@ class QRCode(GapFillingIDMixin, models.Model):
     )
 
     house = models.OneToOneField(
-        House, on_delete=models.CASCADE, related_name="qr_code", verbose_name="House"
+        House,
+        on_delete=models.CASCADE,
+        related_name="qr_code",
+        verbose_name="House",
+        null=True,
+        blank=True,
     )
 
     image = models.ImageField(

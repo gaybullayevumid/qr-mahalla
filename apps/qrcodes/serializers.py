@@ -46,3 +46,6 @@ class QRCodeClaimSerializer(serializers.Serializer):
 
     first_name = serializers.CharField(max_length=100)
     last_name = serializers.CharField(max_length=100)
+    address = serializers.CharField(max_length=255)
+    house_number = serializers.CharField(max_length=50)
+    mahalla = serializers.IntegerField()  # Mahalla ID

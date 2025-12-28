@@ -133,30 +133,38 @@ class QRCodeScanAPIView(APIView):
 
         if request.user and request.user.is_authenticated:
             user_role = getattr(request.user, "role", "user")
-            is_owner = qr.house.owner == request.user if qr.house.owner else False
+            is_owner = (
+                qr.house and qr.house.owner == request.user if qr.house else False
+            )
 
-        # Unclaimed house - no owner
-        if not qr.house.owner:
+        # QR kod house ga bog'lanmagan yoki house egasi yo'q
+        if not qr.house or not qr.house.owner:
             response_data = {
                 "status": "unclaimed",
                 "message": (
-                    "Bu uyning egasi yo'q. Siz claim qilishingiz mumkin."
+                    "Bu QR kod hali biriktirilmagan. Siz uyingiz ma'lumotlarini kiritib claim qilishingiz mumkin."
                     if user_role != "anonymous"
-                    else "Bu uyning egasi yo'q."
+                    else "Bu QR kod hali biriktirilmagan."
                 ),
                 "qr": {
                     "id": qr.id,
                     "uuid": qr.uuid,
                     "qr_url": qr.get_qr_url(),
                 },
-                "house": {
+            }
+
+            # Agar house bor bo'lsa ma'lumotini qo'shamiz
+            if qr.house:
+                response_data["house"] = {
                     "id": qr.house.id,
                     "address": qr.house.address,
                     "house_number": qr.house.house_number,
                     **_get_location_data(qr.house),
-                },
-                "owner": None,
-            }
+                }
+            else:
+                response_data["house"] = None
+
+            response_data["owner"] = None
 
             # Add claim URL only for authenticated users
             if user_role != "anonymous":
@@ -334,27 +342,53 @@ class ClaimHouseView(APIView):
                 {"error": "QR code not found"}, status=status.HTTP_404_NOT_FOUND
             )
 
-        # Check if already claimed
-        if qr.house.owner:
+        # Check if QR already has a house with owner
+        if qr.house and qr.house.owner:
             return Response(
                 {"error": "This house is already claimed"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Validate and save user data
+        # Validate claim data (user + house info)
         serializer = QRCodeClaimSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        # Update user info (keep existing role - don't change role)
+        # Update user info
         user = request.user
         user.first_name = serializer.validated_data["first_name"]
         user.last_name = serializer.validated_data["last_name"]
-        # Role stays unchanged (client, agent, etc.)
         user.save()
 
-        # Assign house ownership
-        qr.house.owner = user
-        qr.house.save()
+        # Create new house or update existing
+        from apps.regions.models import Mahalla
+
+        try:
+            mahalla = Mahalla.objects.get(id=serializer.validated_data["mahalla"])
+        except Mahalla.DoesNotExist:
+            return Response(
+                {"error": "Mahalla not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        if qr.house:
+            # Update existing house
+            qr.house.address = serializer.validated_data["address"]
+            qr.house.house_number = serializer.validated_data["house_number"]
+            qr.house.mahalla = mahalla
+            qr.house.owner = user
+            qr.house.save()
+            house = qr.house
+        else:
+            # Create new house
+            from apps.houses.models import House
+
+            house = House.objects.create(
+                address=serializer.validated_data["address"],
+                house_number=serializer.validated_data["house_number"],
+                mahalla=mahalla,
+                owner=user,
+            )
+            qr.house = house
+            qr.save()
 
         # Log the claim
         ScanLog.objects.create(
@@ -365,15 +399,18 @@ class ClaimHouseView(APIView):
             {
                 "message": "House claimed successfully",
                 "house": {
-                    "id": qr.house.id,
-                    "address": qr.house.address,
-                    "number": qr.house.house_number,
-                    "mahalla": qr.house.mahalla.name,
+                    "id": house.id,
+                    "address": house.address,
+                    "number": house.house_number,
+                    "mahalla": house.mahalla.name,
+                    "district": house.mahalla.district.name,
+                    "region": house.mahalla.district.region.name,
                 },
                 "owner": {
                     "phone": user.phone,
                     "first_name": user.first_name,
                     "last_name": user.last_name,
+                    "role": user.role,
                 },
                 "qr": {
                     "id": qr.id,

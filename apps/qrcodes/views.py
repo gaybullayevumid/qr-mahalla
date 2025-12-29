@@ -432,22 +432,17 @@ class ClaimHouseView(APIView):
                     qr.house.save()
                     house = qr.house
                 else:
-                    # Create new house
+                    # Create new house and link to QR code
                     house = House.objects.create(
                         address=serializer.validated_data["address"],
                         house_number=serializer.validated_data["house_number"],
                         mahalla=mahalla,
                         owner=user,
                     )
-                    # Update QR code using raw SQL to bypass model issues
-                    from django.db import connection
 
-                    with connection.cursor() as cursor:
-                        cursor.execute(
-                            "UPDATE qrcodes_qrcode SET house_id = %s WHERE id = %s",
-                            [house.id, qr.id],
-                        )
-                    qr.house = house  # Update local instance
+                    # Link QR to house
+                    qr.house = house
+                    qr.save()
 
                 # Log the claim
                 ScanLog.objects.create(

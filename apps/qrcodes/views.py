@@ -202,7 +202,7 @@ class QRCodeScanAPIView(APIView):
 class ScanQRCodeView(APIView):
     """Scan QR code by UUID - Main endpoint for all users"""
 
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]
 
     def get(self, request, uuid):
         try:
@@ -215,24 +215,31 @@ class ScanQRCodeView(APIView):
                 {"error": "QR code not found"}, status=status.HTTP_404_NOT_FOUND
             )
 
-        # Log scan and save UUID to user (for all cases)
-        ScanLog.objects.create(
-            qr=qr, scanned_by=request.user, ip_address=get_client_ip(request)
-        )
-        request.user.scanned_qr_code = qr.uuid
-        request.user.save(update_fields=["scanned_qr_code"])
+        # Log scan and save UUID to user (only if authenticated)
+        if request.user and request.user.is_authenticated:
+            ScanLog.objects.create(
+                qr=qr, scanned_by=request.user, ip_address=get_client_ip(request)
+            )
+            request.user.scanned_qr_code = qr.uuid
+            request.user.save(update_fields=["scanned_qr_code"])
 
         # Get user role
-        user_role = getattr(request.user, "role", "client")
+        user_role = "anonymous"
         is_owner = False
-        if qr.house and qr.house.owner:
-            is_owner = qr.house.owner == request.user
+        if request.user and request.user.is_authenticated:
+            user_role = getattr(request.user, "role", "user")
+            if qr.house and qr.house.owner:
+                is_owner = qr.house.owner == request.user
 
         # QR code has no house or house has no owner - user can claim it
         if not qr.house or not qr.house.owner:
             response_data = {
                 "status": "unclaimed",
-                "message": "This house has no owner yet. You can claim it.",
+                "message": (
+                    "Bu QR kod hali biriktirilmagan. Siz uyingiz ma'lumotlarini kiritib claim qilishingiz mumkin."
+                    if user_role != "anonymous"
+                    else "Bu uyning egasi yo'q. Claim qilish uchun login qiling."
+                ),
                 "qr": {
                     "id": qr.id,
                     "uuid": qr.uuid,
@@ -243,24 +250,41 @@ class ScanQRCodeView(APIView):
             # Add house info if exists
             if qr.house:
                 response_data["house"] = {
+                    "id": qr.house.id,
                     "address": qr.house.address,
-                    "number": qr.house.house_number,
+                    "house_number": qr.house.house_number,
                     **_get_location_data(qr.house),
                 }
             else:
                 response_data["house"] = None
+            
+            response_data["owner"] = None
+
+            # Add claim URL only for authenticated users
+            if user_role != "anonymous":
+                response_data["can_claim"] = True
+                response_data["claim_url"] = f"/api/qrcodes/claim/{uuid}/"
+            else:
+                response_data["can_claim"] = False
 
             return Response(response_data)
 
         return Response(
             {
                 "status": "claimed",
-                "owner": _get_owner_data(qr.house.owner, user_role, is_owner),
+                "qr": {
+                    "id": qr.id,
+                    "uuid": qr.uuid,
+                    "qr_url": qr.get_qr_url(),
+                },
                 "house": {
+                    "id": qr.house.id,
                     "address": qr.house.address,
-                    "number": qr.house.house_number,
+                    "house_number": qr.house.house_number,
                     **_get_location_data(qr.house),
                 },
+                "owner": _get_owner_data(qr.house.owner, user_role, is_owner),
+                "is_owner": is_owner,
             }
         )
 

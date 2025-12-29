@@ -483,7 +483,7 @@ class ClaimHouseView(APIView):
             return Response(
                 {
                     "error": "Database integrity error. This house may already have a QR code or there's a duplicate entry.",
-                    "detail": str(e)
+                    "detail": str(e),
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
@@ -491,7 +491,7 @@ class ClaimHouseView(APIView):
             return Response(
                 {
                     "error": "An unexpected error occurred while claiming the house",
-                    "detail": str(e)
+                    "detail": str(e),
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )

@@ -257,7 +257,7 @@ class ScanQRCodeView(APIView):
                 }
             else:
                 response_data["house"] = None
-            
+
             response_data["owner"] = None
 
             # Add claim URL only for authenticated users

@@ -350,6 +350,10 @@ class ClaimHouseView(APIView):
     permission_classes = [IsAuthenticated]
 
     def post(self, request, uuid):
+        from django.db import transaction
+        from apps.regions.models import Mahalla
+        from apps.houses.models import House
+
         try:
             qr = QRCode.objects.select_related("house__mahalla").get(uuid=uuid)
         except QRCode.DoesNotExist:
@@ -368,14 +372,7 @@ class ClaimHouseView(APIView):
         serializer = QRCodeClaimSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
-        # Update user info
         user = request.user
-        user.first_name = serializer.validated_data["first_name"]
-        user.last_name = serializer.validated_data["last_name"]
-        user.save()
-
-        # Create new house or update existing
-        from apps.regions.models import Mahalla
 
         try:
             mahalla = Mahalla.objects.get(id=serializer.validated_data["mahalla"])
@@ -384,26 +381,48 @@ class ClaimHouseView(APIView):
                 {"error": "Mahalla not found"}, status=status.HTTP_404_NOT_FOUND
             )
 
-        if qr.house:
-            # Update existing house
-            qr.house.address = serializer.validated_data["address"]
-            qr.house.house_number = serializer.validated_data["house_number"]
-            qr.house.mahalla = mahalla
-            qr.house.owner = user
-            qr.house.save()
-            house = qr.house
-        else:
-            # Create new house
-            from apps.houses.models import House
+        # Use atomic transaction to prevent race conditions
+        with transaction.atomic():
+            # Re-fetch QR code with lock to prevent concurrent claims
+            qr = QRCode.objects.select_for_update().get(uuid=uuid)
 
-            house = House.objects.create(
-                address=serializer.validated_data["address"],
-                house_number=serializer.validated_data["house_number"],
-                mahalla=mahalla,
-                owner=user,
-            )
-            qr.house = house
-            qr.save()
+            # Double-check after lock
+            if qr.house and qr.house.owner:
+                return Response(
+                    {"error": "This house is already claimed"},
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
+
+            # Update user info
+            user.first_name = serializer.validated_data["first_name"]
+            user.last_name = serializer.validated_data["last_name"]
+            user.save(update_fields=["first_name", "last_name"])
+
+            if qr.house:
+                # Update existing house
+                qr.house.address = serializer.validated_data["address"]
+                qr.house.house_number = serializer.validated_data["house_number"]
+                qr.house.mahalla = mahalla
+                qr.house.owner = user
+                qr.house.save()
+                house = qr.house
+            else:
+                # Create new house
+                house = House.objects.create(
+                    address=serializer.validated_data["address"],
+                    house_number=serializer.validated_data["house_number"],
+                    mahalla=mahalla,
+                    owner=user,
+                )
+                # Update QR code using raw SQL to bypass model issues
+                from django.db import connection
+
+                with connection.cursor() as cursor:
+                    cursor.execute(
+                        "UPDATE qrcodes_qrcode SET house_id = %s WHERE id = %s",
+                        [house.id, qr.id],
+                    )
+                qr.house = house  # Update local instance
 
         # Log the claim
         ScanLog.objects.create(

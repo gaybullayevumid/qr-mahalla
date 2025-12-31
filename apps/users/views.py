@@ -210,7 +210,7 @@ class AuthAPIView(APIView):
                 "user": {
                     "id": user.id,
                     "phone": user.phone,
-                    "role": user_role_obj,  # Object sifatida
+                    "role": user_role_obj,
                     "first_name": user.first_name,
                     "last_name": user.last_name,
                     "is_verified": user.is_verified,

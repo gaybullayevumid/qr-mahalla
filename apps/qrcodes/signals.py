@@ -1,22 +1,31 @@
 import logging
-from django.db.models.signals import post_save, pre_save
+
+from django.db.models.signals import post_save
 from django.dispatch import receiver
+
+from apps.houses.models import House
+from .models import QRCode
 
 logger = logging.getLogger(__name__)
 
-from apps.houses.models import House
-from apps.regions.models import Mahalla
-from .models import QRCode
+# Constants
+MINIMUM_UNCLAIMED_HOUSES = 10  # Minimum number of unclaimed houses to maintain
 
 
-MINIMUM_UNCLAIMED_HOUSES = 10  # Har doim 10 ta egasiz uy bo'lishi kerak
+# Constants
+MINIMUM_UNCLAIMED_HOUSES = 10  # Minimum number of unclaimed houses to maintain
 
 
 @receiver(post_save, sender=House)
 def create_qr_code_for_house(sender, instance, created, **kwargs):
     """
-    House birinchi marta yaratilganda
-    unga avtomatik QR code yaratadi
+    Automatically create QR code when a new house is created.
+
+    Args:
+        sender: Model class (House)
+        instance: The actual House instance being saved
+        created: Boolean indicating if this is a new object
+        **kwargs: Additional keyword arguments
     """
     if created:
         QRCode.objects.create(house=instance)
@@ -25,37 +34,42 @@ def create_qr_code_for_house(sender, instance, created, **kwargs):
 @receiver(post_save, sender=House)
 def maintain_unclaimed_houses(sender, instance, created, **kwargs):
     """
-    House owner'ga berilganda, egasiz uylar sonini tekshiradi
-    va har doim 10 ta egasiz uy bo'lishini ta'minlaydi
+    Maintain minimum number of unclaimed houses.
+
+    When a house gets an owner, check unclaimed houses count
+    and create new ones if needed to maintain the minimum.
+
+    Args:
+        sender: Model class (House)
+        instance: The actual House instance being saved
+        created: Boolean indicating if this is a new object
+        **kwargs: Additional keyword arguments
     """
-    # Agar uy yangi yaratilgan yoki owner o'zgarmagan bo'lsa, hech narsa qilmaydi
-    if created:
+    # Skip if house is newly created or has no owner
+    if created or not instance.owner:
         return
 
-    # Agar house ga owner berilgan bo'lsa
-    if instance.owner:
-        # Egasiz uylar sonini tekshirish
-        unclaimed_count = House.objects.filter(owner__isnull=True).count()
+    # Check unclaimed houses count
+    unclaimed_count = House.objects.filter(owner__isnull=True).count()
 
-        # Agar 10 dan kam bo'lsa, yangi uylar yaratish
-        if unclaimed_count < MINIMUM_UNCLAIMED_HOUSES:
-            houses_needed = MINIMUM_UNCLAIMED_HOUSES - unclaimed_count
+    # Create new houses if below minimum
+    if unclaimed_count < MINIMUM_UNCLAIMED_HOUSES:
+        houses_needed = MINIMUM_UNCLAIMED_HOUSES - unclaimed_count
+        mahalla = instance.mahalla
 
-            # Oxirgi uyning mahalla'sidan yangi uylar yaratish
-            mahalla = instance.mahalla
-
-            for i in range(houses_needed):
-                house_count = House.objects.filter(mahalla=mahalla).count()
-                House.objects.create(
-                    mahalla=mahalla,
-                    address=f"{mahalla.name}, avtomatik yaratilgan uy",
-                    house_number=f"AUTO-{house_count + i + 1}",
-                    owner=None,
-                )
-
-            logger.info(
-                f"Created {houses_needed} new unclaimed houses to maintain minimum of {MINIMUM_UNCLAIMED_HOUSES}"
+        for i in range(houses_needed):
+            house_count = House.objects.filter(mahalla=mahalla).count()
+            House.objects.create(
+                mahalla=mahalla,
+                address=f"{mahalla.name}, avtomatik yaratilgan uy",
+                house_number=f"AUTO-{house_count + i + 1}",
+                owner=None,
             )
+
+        logger.info(
+            f"Created {houses_needed} new unclaimed houses to maintain "
+            f"minimum of {MINIMUM_UNCLAIMED_HOUSES}"
+        )
 
 
 # NOTE: is_delivered field has been removed from QRCode model

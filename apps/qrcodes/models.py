@@ -1,6 +1,7 @@
 import uuid
 import qrcode
 from io import BytesIO
+from typing import Optional
 
 from django.db import models
 from django.core.files import File
@@ -11,7 +12,12 @@ from apps.utils import GapFillingIDMixin
 
 
 class QRCode(GapFillingIDMixin, models.Model):
-    """QR code for house identification and ownership claiming"""
+    """
+    QR code for house identification and ownership claiming.
+
+    Each QR code has a unique 16-character UUID and can be linked to a house.
+    Generates Telegram bot URL for easy scanning.
+    """
 
     uuid = models.CharField(
         max_length=16, unique=True, editable=False, verbose_name="UUID"
@@ -37,7 +43,8 @@ class QRCode(GapFillingIDMixin, models.Model):
         verbose_name_plural = "QR Codes"
         ordering = ["id"]
 
-    def save(self, *args, **kwargs):
+    def save(self, *args, **kwargs) -> None:
+        """Generate UUID if not exists before saving."""
         if not self.uuid:
             self.uuid = uuid.uuid4().hex[:16]
 
@@ -45,14 +52,25 @@ class QRCode(GapFillingIDMixin, models.Model):
         # Image will be generated later if needed
         super().save(*args, **kwargs)
 
-    def get_qr_url(self):
-        """Get Telegram bot URL with QR code ID"""
-        # Format: https://t.me/qrmahallabot/start?startapp=QR_KEY_<uuid>
+    def get_qr_url(self) -> str:
+        """
+        Get Telegram bot URL with QR code ID.
+
+        Format: https://t.me/{bot_username}/start?startapp=QR_KEY_{uuid}
+
+        Returns:
+            Full Telegram bot URL string
+        """
         bot_username = getattr(settings, "TELEGRAM_BOT_USERNAME", "qrmahallabot")
         return f"https://t.me/{bot_username}/start?startapp=QR_KEY_{self.uuid}"
 
-    def generate_qr_image(self):
-        """Generate QR code image with Telegram bot URL"""
+    def generate_qr_image(self) -> None:
+        """
+        Generate QR code image with Telegram bot URL.
+
+        Only generates if image doesn't exist yet.
+        Saves image to media/qr_codes/ directory.
+        """
         if self.image:  # Don't regenerate if image exists
             return
 
@@ -73,5 +91,6 @@ class QRCode(GapFillingIDMixin, models.Model):
         buffer.seek(0)  # Reset buffer position to beginning
         self.image.save(f"{self.uuid}.png", File(buffer), save=False)
 
-    def __str__(self):
+    def __str__(self) -> str:
+        """String representation of QR code."""
         return f"QR #{self.id} - {self.uuid}"

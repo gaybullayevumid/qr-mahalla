@@ -11,7 +11,6 @@ class Command(BaseCommand):
 
         self.stdout.write(self.style.WARNING("\n📱 Getting Telegram Chat ID...\n"))
 
-        # Get bot info
         try:
             bot_info_url = f"https://api.telegram.org/bot{bot_token}/getMe"
             bot_response = requests.get(bot_info_url, timeout=5)
@@ -27,7 +26,6 @@ class Command(BaseCommand):
         except Exception as e:
             self.stdout.write(self.style.ERROR(f"❌ Error getting bot info: {e}"))
 
-        # Get updates
         try:
             url = f"https://api.telegram.org/bot{bot_token}/getUpdates"
             response = requests.get(url, timeout=5)

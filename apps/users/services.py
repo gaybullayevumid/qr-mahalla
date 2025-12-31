@@ -7,23 +7,33 @@ logger = logging.getLogger(__name__)
 
 def send_sms(phone, code):
     """
-    Send SMS code via Telegram bot
+    Send SMS verification code via Telegram bot.
+
+    Args:
+        phone: User's phone number
+        code: 6-digit verification code
+
+    Returns:
+        bool: True if message was successfully sent to at least one chat,
+              False otherwise
+
+    Note:
+        Sends to all configured TELEGRAM_CHAT_IDS in settings.
+        Falls back to logging if Telegram delivery fails.
     """
     try:
         bot_token = settings.TELEGRAM_BOT_TOKEN
 
-        # Format message with code as monospace (easy to copy)
         message = f"""
 🔐 QR Mahalla - Verification Code
 
 Phone: <code>{phone}</code>
 Code: <code>{code}</code>
 
-⏱️ Bu kod 1.5 daqiqa amal qiladi va faqat bir marta ishlatiladi.
-⚠️ Koddan foydalangandan keyin qayta ishlatib bo'lmaydi!
+⏱️ This code is valid for 1.5 minutes and can only be used once.
+⚠️ Code cannot be reused after verification!
 """
 
-        # Try to send to all chat_ids if set
         chat_ids = getattr(settings, "TELEGRAM_CHAT_IDS", [])
 
         if chat_ids:

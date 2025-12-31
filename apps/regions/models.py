@@ -42,7 +42,6 @@ class Mahalla(GapFillingIDMixin, models.Model):
     )
     name = models.CharField(max_length=100, verbose_name="Neighborhood name")
 
-    # neighborhood admin
     admin = models.ForeignKey(
         User,
         on_delete=models.SET_NULL,

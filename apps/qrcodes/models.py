@@ -48,8 +48,6 @@ class QRCode(GapFillingIDMixin, models.Model):
         if not self.uuid:
             self.uuid = uuid.uuid4().hex[:16]
 
-        # Don't call generate_qr_image() here to avoid nested saves
-        # Image will be generated later if needed
         super().save(*args, **kwargs)
 
     def get_qr_url(self) -> str:
@@ -71,10 +69,9 @@ class QRCode(GapFillingIDMixin, models.Model):
         Only generates if image doesn't exist yet.
         Saves image to media/qr_codes/ directory.
         """
-        if self.image:  # Don't regenerate if image exists
+        if self.image:
             return
 
-        # Generate QR code with Telegram bot URL
         qr_url = self.get_qr_url()
         qr = qrcode.QRCode(
             version=1,
@@ -88,7 +85,7 @@ class QRCode(GapFillingIDMixin, models.Model):
         img = qr.make_image(fill_color="black", back_color="white")
         buffer = BytesIO()
         img.save(buffer, format="PNG")
-        buffer.seek(0)  # Reset buffer position to beginning
+        buffer.seek(0)
         self.image.save(f"{self.uuid}.png", File(buffer), save=False)
 
     def __str__(self) -> str:

@@ -6,6 +6,11 @@ from ..regions.models import Mahalla
 
 
 class House(GapFillingIDMixin, models.Model):
+    """Model representing a house or residential property.
+
+    A house belongs to a mahalla (neighborhood) and can have an owner.
+    """
+
     owner = models.ForeignKey(
         User,
         on_delete=models.CASCADE,

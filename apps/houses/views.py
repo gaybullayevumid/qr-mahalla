@@ -7,12 +7,16 @@ from .permissions import HouseAccessPermission
 
 
 class HouseViewSet(ModelViewSet):
-    """CRUD operations for houses"""
+    """ViewSet for CRUD operations on houses."""
 
     permission_classes = [IsAuthenticated]
 
     def get_permissions(self):
-        """Allow read and create for all, update/delete for admins only"""
+        """Return permissions based on action.
+
+        Allow read and create for all authenticated users.
+        Update and delete operations require HouseAccessPermission.
+        """
         if self.action in ["list", "retrieve", "create"]:
             return [IsAuthenticated()]
         return [IsAuthenticated(), HouseAccessPermission()]
@@ -23,7 +27,7 @@ class HouseViewSet(ModelViewSet):
         return HouseSerializer
 
     def perform_create(self, serializer):
-        """Automatically set owner to current user when creating a house"""
+        """Set the owner to the current user when creating a house."""
         serializer.save(owner=self.request.user)
 
     def get_queryset(self):
@@ -35,13 +39,10 @@ class HouseViewSet(ModelViewSet):
 
         queryset = House.objects.select_related("owner", "mahalla__district__region")
 
-        # Clients see their own houses
         if role == "client":
             return queryset.filter(owner=user)
 
-        # Leader (mahalla admin) sees their neighborhood
         if role == "leader" and hasattr(user, "mahalla"):
             return queryset.filter(mahalla=user.mahalla)
 
-        # Admin and government see all
         return queryset

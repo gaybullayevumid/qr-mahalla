@@ -27,8 +27,10 @@ class RegionViewSet(ModelViewSet):
 
     def get_permissions(self):
         """
-        Allow all authenticated users to view (GET) regions
-        Only admins can create/update/delete
+        Determine permissions based on action.
+
+        Authenticated users can list and retrieve regions.
+        Only admins or government users can create, update, or delete.
         """
         if self.action in ["list", "retrieve", "districts", "neighborhoods"]:
             return [IsAuthenticated()]
@@ -37,14 +39,15 @@ class RegionViewSet(ModelViewSet):
     def get_serializer_class(self):
         if self.action in ["create", "update", "partial_update"]:
             return RegionWriteSerializer
-        # Use detailed serializer for both list and retrieve
         return RegionDetailSerializer
 
     @action(detail=True, methods=["get", "post"], url_path="districts")
     def districts(self, request, pk=None):
         """
-        GET: List all districts in this region
-        POST: Create a new district in this region
+        Handle district operations for a specific region.
+
+        GET: List all districts in this region.
+        POST: Create a new district in this region.
         """
         region = self.get_object()
 
@@ -56,7 +59,6 @@ class RegionViewSet(ModelViewSet):
             return Response(serializer.data)
 
         elif request.method == "POST":
-            # Create district in this region
             serializer = DistrictNestedWriteSerializer(data=request.data)
             serializer.is_valid(raise_exception=True)
             serializer.save(region=region)
@@ -65,8 +67,10 @@ class RegionViewSet(ModelViewSet):
     @action(detail=True, methods=["get", "post"], url_path="neighborhoods")
     def neighborhoods(self, request, pk=None):
         """
-        GET: List all neighborhoods in this region
-        POST: Not supported (create neighborhoods under districts)
+        Handle neighborhood operations for a specific region.
+
+        GET: List all neighborhoods in this region.
+        POST: Not supported. Create neighborhoods under districts endpoint.
         """
         region = self.get_object()
 
@@ -95,8 +99,10 @@ class DistrictViewSet(ModelViewSet):
 
     def get_permissions(self):
         """
-        Allow all authenticated users to view (GET) districts
-        Only admins can create/update/delete
+        Determine permissions based on action.
+
+        Authenticated users can list and retrieve districts.
+        Only admins or government users can create, update, or delete.
         """
         if self.action in ["list", "retrieve", "neighborhoods"]:
             return [IsAuthenticated()]
@@ -104,16 +110,18 @@ class DistrictViewSet(ModelViewSet):
 
     def get_serializer_class(self):
         if self.action in ["create", "update", "partial_update"]:
-            return DistrictNestedWriteSerializer  # Supports nested mahallas CRUD
+            return DistrictNestedWriteSerializer
         if self.action == "retrieve":
-            return DistrictNestedSerializer  # Shows nested mahallas on detail view
+            return DistrictNestedSerializer
         return DistrictSerializer
 
     @action(detail=True, methods=["get", "post"], url_path="neighborhoods")
     def neighborhoods(self, request, pk=None):
         """
-        GET: List all neighborhoods in this district
-        POST: Create a new neighborhood in this district
+        Handle neighborhood operations for a specific district.
+
+        GET: List all neighborhoods in this district.
+        POST: Create a new neighborhood in this district.
         """
         district = self.get_object()
 
@@ -123,9 +131,8 @@ class DistrictViewSet(ModelViewSet):
             return Response(serializer.data)
 
         elif request.method == "POST":
-            # Create neighborhood in this district
             data = request.data.copy()
-            data["district"] = district.id  # Auto-set district from URL
+            data["district"] = district.id
             serializer = MahallaCreateSerializer(data=data)
             serializer.is_valid(raise_exception=True)
             serializer.save()
@@ -137,8 +144,10 @@ class MahallaViewSet(ModelViewSet):
 
     def get_permissions(self):
         """
-        Allow regular users to list/retrieve mahallas for house creation
-        Only admins can create/update/delete
+        Determine permissions based on action.
+
+        Authenticated users can list and retrieve mahallas for house creation.
+        Only admins or government users can create, update, or delete.
         """
         if self.action in ["list", "retrieve"]:
             return [IsAuthenticated()]

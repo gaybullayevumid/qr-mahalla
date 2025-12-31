@@ -44,23 +44,14 @@ class AuthAPIView(APIView):
         phone = serializer.validated_data["phone"]
         code = serializer.validated_data.get("code")
 
-        # Check if code is empty string or None
         if code:
             code = code.strip()
 
-        # If no code provided → send SMS
         if not code:
-            # Don't create user yet - only create after SMS verification
-            # Just generate and send OTP
-
-            # Invalidate old codes
             PhoneOTP.objects.filter(phone=phone, is_used=False).update(is_used=True)
 
-            # Generate new code
             new_code = PhoneOTP.generate_code()
             PhoneOTP.objects.create(phone=phone, code=new_code)
-
-            # Send SMS
             try:
                 send_sms(phone, new_code)
                 return Response(
@@ -77,13 +68,9 @@ class AuthAPIView(APIView):
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
 
-        # If code provided → verify and return token
         else:
-            # Normalize phone number for comparison
             phone = phone.strip()
             code = code.strip()
-
-            # Check OTP code first (before checking user)
             otp = (
                 PhoneOTP.objects.filter(phone=phone, code=code, is_used=False)
                 .order_by("-created_at")
@@ -91,7 +78,6 @@ class AuthAPIView(APIView):
             )
 
             if not otp:
-                # Debug: show what codes exist for this phone
                 all_codes = PhoneOTP.objects.filter(phone=phone).order_by(
                     "-created_at"
                 )[:3]
@@ -108,7 +94,6 @@ class AuthAPIView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            # Kod allaqachon ishlatilganmi tekshirish
             if otp.is_used:
                 return Response(
                     {
@@ -117,9 +102,7 @@ class AuthAPIView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            # Kod muddati o'tganmi tekshirish
             if otp.is_expired():
-                # Muddati o'tgan kodni ishlatilgan deb belgilash
                 otp.is_used = True
                 otp.save()
                 return Response(
@@ -127,11 +110,8 @@ class AuthAPIView(APIView):
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            # Kodni ishlatilgan deb belgilash (qayta foydalanib bo'lmaydi)
             otp.is_used = True
             otp.save()
-
-            # Create user if doesn't exist (SMS kod tasdiqlangandan keyin)
             user, created = User.objects.get_or_create(
                 phone=phone,
                 defaults={
@@ -140,19 +120,14 @@ class AuthAPIView(APIView):
                 },
             )
 
-            # If user already exists, just verify them
             if not created:
                 user.is_verified = True
                 user.save()
 
-            # Get device info from request
             device_id = request.data.get("device_id", "unknown")
             device_name = request.data.get("device_name", "")
 
-            # Create JWT token
             refresh = RefreshToken.for_user(user)
-
-            # Create or update session
             session, created = UserSession.objects.update_or_create(
                 user=user,
                 device_id=device_id,
@@ -165,7 +140,6 @@ class AuthAPIView(APIView):
                 },
             )
 
-            # Get all available roles
             available_roles = [
                 {
                     "value": "admin",
@@ -194,7 +168,6 @@ class AuthAPIView(APIView):
                 },
             ]
 
-            # Get user's houses with QR codes
             from apps.houses.models import House
             from apps.qrcodes.models import QRCode
 
@@ -222,7 +195,6 @@ class AuthAPIView(APIView):
                     }
                 )
 
-            # User rolini object sifatida qaytarish
             user_role_obj = next(
                 (r for r in available_roles if r["value"] == user.role),
                 {
@@ -247,22 +219,15 @@ class AuthAPIView(APIView):
                 "available_roles": available_roles,
             }
 
-            # Debug logging
-            print("=" * 70)
-            print("🔐 AUTH SUCCESS")
-            print(f"Phone: {phone}, Code verified: {code}")
-            print(f"User ID: {user.id}")
-            print(f"Response user.id: {response_data['user']['id']}")
-            print(f"Response keys: {list(response_data.keys())}")
-            print(f"User keys: {list(response_data['user'].keys())}")
-            print("=" * 70)
-
             return Response(response_data, status=status.HTTP_200_OK)
 
 
 class UserProfileAPIView(APIView):
     """
-    Get and update user profile
+    API endpoint for retrieving and updating user profile information.
+
+    Provides GET, PUT, PATCH, and POST methods for profile management.
+    Requires authentication.
     """
 
     permission_classes = [IsAuthenticated]
@@ -271,20 +236,12 @@ class UserProfileAPIView(APIView):
     def get(self, request):
         user = request.user
 
-        # Debug logging
-        print("=" * 70)
-        print("🔍 PROFILE GET REQUEST")
-        print(f"User: {user.id} - {user.phone}")
-        print(f"Authenticated: {user.is_authenticated}")
-        print("=" * 70)
-
         if not user.is_authenticated or not hasattr(user, "role"):
             return Response(
                 {"error": "Authentication required"},
                 status=status.HTTP_401_UNAUTHORIZED,
             )
 
-        # Get user's houses with QR codes
         from apps.houses.models import House
         from apps.qrcodes.models import QRCode
 
@@ -322,19 +279,11 @@ class UserProfileAPIView(APIView):
             "houses": house_list,
         }
 
-        # Debug logging
-        print("📤 PROFILE RESPONSE:")
-        print(f"ID in response: {response_data.get('id')}")
-        print(f"Keys: {list(response_data.keys())}")
-        print("=" * 70)
-
         return Response(response_data)
 
     def put(self, request):
-        """Update user profile"""
+        """Update user profile with allowed fields."""
         user = request.user
-
-        # Update allowed fields
         allowed_fields = ["first_name", "last_name"]
 
         for field in allowed_fields:
@@ -343,21 +292,20 @@ class UserProfileAPIView(APIView):
 
         user.save()
 
-        # Return updated profile
         return self.get(request)
 
     def patch(self, request):
-        """Partial update user profile"""
+        """Partial update of user profile."""
         return self.put(request)
 
     def post(self, request):
-        """POST method - redirect to PUT"""
+        """Handle POST requests by redirecting to PUT method."""
         return self.put(request)
 
 
 class UserSessionsAPIView(APIView):
     """
-    Get user's active sessions
+    API endpoint for retrieving user's active sessions across all devices.
     """
 
     permission_classes = [IsAuthenticated]
@@ -386,7 +334,7 @@ class UserSessionsAPIView(APIView):
 
 class LogoutDeviceAPIView(APIView):
     """
-    Logout from specific device
+    API endpoint for logging out from a specific device session.
     """
 
     permission_classes = [IsAuthenticated]
@@ -414,7 +362,7 @@ class LogoutDeviceAPIView(APIView):
 
 class LogoutAllDevicesAPIView(APIView):
     """
-    Logout from all devices except current
+    API endpoint for logging out from all devices except the current one.
     """
 
     permission_classes = [IsAuthenticated]
@@ -423,13 +371,11 @@ class LogoutAllDevicesAPIView(APIView):
     def post(self, request):
         current_device_id = request.data.get("device_id")
 
-        # Deactivate all sessions except current device
         if current_device_id:
             UserSession.objects.filter(user=request.user, is_active=True).exclude(
                 device_id=current_device_id
             ).update(is_active=False)
         else:
-            # Deactivate all sessions
             UserSession.objects.filter(user=request.user, is_active=True).update(
                 is_active=False
             )
@@ -439,8 +385,10 @@ class LogoutAllDevicesAPIView(APIView):
 
 class UserRolesAPIView(APIView):
     """
-    Get all available user roles
-    Returns list of roles with value, label and permissions
+    API endpoint for retrieving all available user roles.
+
+    Returns a list of roles with their values, labels, descriptions,
+    permissions, and hierarchy levels.
     """
 
     permission_classes = [AllowAny]
@@ -510,74 +458,84 @@ class UserRolesAPIView(APIView):
 
 
 class CustomTokenRefreshView(BaseTokenRefreshView):
-    """Custom token refresh view hidden from Swagger"""
+    """Custom token refresh view excluded from API documentation."""
 
     schema = None
 
 
 class UserViewSet(ModelViewSet):
-    """CRUD viewset for users with their houses - role-based access"""
+    """
+    CRUD viewset for managing users and their associated houses.
+
+    Implements role-based access control where different user roles
+    have different levels of access to user data.
+    """
 
     queryset = User.objects.prefetch_related("houses__mahalla__district__region").all()
     permission_classes = [IsAuthenticated]
 
     def get_serializer_class(self):
-        """Use different serializers for different actions"""
+        """Return appropriate serializer class based on the action being performed."""
         if self.action in ["create", "update", "partial_update"]:
             return UserCreateUpdateSerializer
         return UserListSerializer
 
     def get_serializer_context(self):
-        """Add request to serializer context for role-based filtering"""
+        """Add request to serializer context for role-based data filtering."""
         context = super().get_serializer_context()
         context["request"] = self.request
         return context
 
     def get_queryset(self):
-        """Filter users based on role"""
+        """
+        Filter users based on the requesting user's role.
+
+        - Clients: see only themselves
+        - Leaders: see users in their mahalla
+        - Admin/Government: see all users
+        """
         user = self.request.user
         role = getattr(user, "role", None)
 
         if not role:
             return User.objects.none()
 
-        # Regular clients see only themselves
         if role == "client":
             return User.objects.filter(id=user.id).prefetch_related(
                 "houses__mahalla__district__region"
             )
 
-        # Leader (mahalla admin) sees users in their mahalla
         if role == "leader" and hasattr(user, "mahalla"):
-            # Get users who own houses in this mahalla
             return (
                 User.objects.filter(houses__mahalla=user.mahalla)
                 .distinct()
                 .prefetch_related("houses__mahalla__district__region")
             )
-
-        # Super admin and government see all users
         return User.objects.all().prefetch_related("houses__mahalla__district__region")
 
     def get_permissions(self):
-        """Role-based permissions"""
+        """
+        Determine permissions based on the action being performed.
+
+        All actions require authentication. Data access is further
+        filtered by role in other methods.
+        """
         if self.action in ["list", "retrieve"]:
-            # Hamma authenticated userlar ko'rishi mumkin (lekin ma'lumot filterlangan)
             return [IsAuthenticated()]
 
         if self.action in ["update", "partial_update"]:
-            # Userlar o'zini edit qilishi mumkin, adminlar hammani
             return [IsAuthenticated()]
-
-        # Create va delete faqat adminlar uchun
         return [IsAuthenticated()]
 
     def update(self, request, *args, **kwargs):
-        """Update with permission check"""
+        """
+        Update user instance with permission validation.
+
+        Regular clients can only update their own profile.
+        """
         instance = self.get_object()
         user = request.user
 
-        # Oddiy client faqat o'zini edit qilishi mumkin
         if user.role == "client" and instance.id != user.id:
             return Response(
                 {"error": "You can only update your own profile"},
@@ -587,11 +545,14 @@ class UserViewSet(ModelViewSet):
         return super().update(request, *args, **kwargs)
 
     def partial_update(self, request, *args, **kwargs):
-        """Partial update with permission check"""
+        """
+        Partially update user instance with permission validation.
+
+        Regular clients can only update their own profile.
+        """
         instance = self.get_object()
         user = request.user
 
-        # Oddiy client faqat o'zini edit qilishi mumkin
         if user.role == "client" and instance.id != user.id:
             return Response(
                 {"error": "You can only update your own profile"},

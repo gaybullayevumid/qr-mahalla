@@ -15,11 +15,13 @@ class GapFillingIDMixin(models.Model):
     @classmethod
     def get_next_available_id(cls):
         """
-        Find the first available ID (fills gaps from deleted records)
+        Find the first available ID (fills gaps from deleted records).
+
+        Returns:
+            int: First available ID in the sequence
         """
         existing_ids = set(cls.objects.values_list("id", flat=True))
 
-        # Find first gap in sequence
         expected_id = 1
         while expected_id in existing_ids:
             expected_id += 1

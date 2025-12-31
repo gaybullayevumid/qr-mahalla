@@ -20,7 +20,11 @@ class IsLeader(BasePermission):
 
 
 class IsAdminOrGov(BasePermission):
-    """Only admin, leader, and gov can access"""
+    """
+    Permission class that allows access to admin, leader, and government users.
+
+    Only users with 'admin', 'leader', or 'gov' roles can access.
+    """
 
     def has_permission(self, request, view):
         return (

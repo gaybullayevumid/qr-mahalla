@@ -65,4 +65,4 @@ class QRCodeClaimSerializer(serializers.Serializer):
     last_name = serializers.CharField(max_length=100)
     address = serializers.CharField(max_length=255)
     house_number = serializers.CharField(max_length=50)
-    mahalla = serializers.IntegerField()  # Mahalla ID
+    mahalla = serializers.IntegerField()

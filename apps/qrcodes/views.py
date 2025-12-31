@@ -22,7 +22,6 @@ from .serializers import (
 )
 
 
-# Constants
 ADMIN_ROLES = ["admin", "gov", "leader"]
 ANONYMOUS_ROLE = "anonymous"
 CLIENT_ROLE = "client"
@@ -72,7 +71,6 @@ def _get_owner_data(
     Returns:
         Dictionary containing owner information based on access level
     """
-    # Minimal info (non-authenticated or regular user)
     data = {
         "id": owner.id,
         "first_name": owner.first_name,
@@ -80,7 +78,6 @@ def _get_owner_data(
         "phone": owner.phone,
     }
 
-    # Full info (admin or house owner)
     if user_role in ADMIN_ROLES or is_owner:
         data.update(
             {
@@ -139,7 +136,7 @@ def _get_unclaimed_response(qr: QRCode, user_role: str) -> Dict[str, Any]:
         user_role: Role of the requesting user
 
     Returns:
-        Response data dictionary
+        Response data dictionary with status, message, QR info, house info, and claim options
     """
     response_data = {
         "status": "unclaimed",
@@ -155,7 +152,6 @@ def _get_unclaimed_response(qr: QRCode, user_role: str) -> Dict[str, Any]:
         },
     }
 
-    # Add house info if exists
     if qr.house:
         response_data["house"] = {
             "id": qr.house.id,
@@ -168,7 +164,6 @@ def _get_unclaimed_response(qr: QRCode, user_role: str) -> Dict[str, Any]:
 
     response_data["owner"] = None
 
-    # Add claim URL only for authenticated users
     if user_role != ANONYMOUS_ROLE:
         response_data["can_claim"] = True
         response_data["claim_url"] = f"/api/qrcodes/claim/{qr.uuid}/"
@@ -237,15 +232,12 @@ class QRCodeScanAPIView(APIView):
 
         data = str(data).strip()
 
-        # If it's a full URL (from phone camera scan)
-        # Format: https://t.me/qrmahallabot/start?startapp=QR_KEY_abc123def456
         if "t.me/" in data or "telegram.me/" in data:
             if "QR_KEY_" in data:
                 parts = data.split("QR_KEY_")
                 if len(parts) > 1:
                     return parts[1].strip()
 
-        # If it's just the UUID (16 chars hex)
         if len(data) == 16:
             return data
 
@@ -267,7 +259,6 @@ class QRCodeScanAPIView(APIView):
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Extract UUID from input
         uuid = self.extract_uuid(raw_data)
 
         if not uuid:
@@ -275,7 +266,6 @@ class QRCodeScanAPIView(APIView):
                 {"error": "Invalid QR code format"}, status=status.HTTP_400_BAD_REQUEST
             )
 
-        # Find QR code
         try:
             qr = QRCode.objects.select_related(
                 "house__owner",
@@ -286,17 +276,12 @@ class QRCodeScanAPIView(APIView):
                 {"error": "QR code not found"}, status=status.HTTP_404_NOT_FOUND
             )
 
-        # Log scan
         _log_qr_scan(request, qr)
-
-        # Get user role and ownership
         user_role, is_owner = _get_user_role_and_ownership(request, qr)
 
-        # QR code not linked to house or house has no owner
         if not qr.house or not qr.house.owner:
             return Response(_get_unclaimed_response(qr, user_role))
 
-        # House has owner - return based on role
         return Response(_get_claimed_response(qr, user_role, is_owner))
 
 
@@ -322,17 +307,13 @@ class ScanQRCodeView(APIView):
                 {"error": "QR code not found"}, status=status.HTTP_404_NOT_FOUND
             )
 
-        # Log scan
         _log_qr_scan(request, qr)
 
-        # Get user role and ownership
         user_role, is_owner = _get_user_role_and_ownership(request, qr)
 
-        # QR code not linked to house or house has no owner
         if not qr.house or not qr.house.owner:
             return Response(_get_unclaimed_response(qr, user_role))
 
-        # House has owner - return based on role
         return Response(_get_claimed_response(qr, user_role, is_owner))
 
 
@@ -358,15 +339,12 @@ class QRCodeListAPIView(generics.ListAPIView):
 
         queryset = QRCode.objects.select_related("house__owner", "house__mahalla")
 
-        # Clients see only unclaimed QR codes (no house or no owner)
         if role == CLIENT_ROLE:
             return queryset.filter(Q(house__isnull=True) | Q(house__owner__isnull=True))
 
-        # Leaders see their neighborhood
         if role == LEADER_ROLE and hasattr(user, "mahalla"):
             return queryset.filter(house__mahalla=user.mahalla)
 
-        # Admins and government see all
         return queryset
 
 
@@ -415,7 +393,6 @@ class QRCodeDetailAPIView(generics.RetrieveAPIView):
 
         queryset = QRCode.objects.select_related("house__owner", "house__mahalla")
 
-        # Regular clients see unclaimed QR codes and their own houses
         if role == CLIENT_ROLE:
             return queryset.filter(
                 Q(house__isnull=True)
@@ -423,11 +400,9 @@ class QRCodeDetailAPIView(generics.RetrieveAPIView):
                 | Q(house__owner=user)
             )
 
-        # Leaders see their neighborhood
         if role == LEADER_ROLE and hasattr(user, "mahalla"):
             return queryset.filter(house__mahalla=user.mahalla)
 
-        # Admins and government see all
         return queryset
 
 
@@ -443,7 +418,6 @@ class ClaimHouseView(APIView):
 
     def post(self, request: Request, uuid: str) -> Response:
         """Handle house claim request."""
-        # Find QR code
         try:
             qr = QRCode.objects.select_related("house__mahalla").get(uuid=uuid)
         except QRCode.DoesNotExist:
@@ -451,21 +425,18 @@ class ClaimHouseView(APIView):
                 {"error": "QR code not found"}, status=status.HTTP_404_NOT_FOUND
             )
 
-        # Check if already claimed
         if qr.house and qr.house.owner:
             return Response(
                 {"error": "This house is already claimed"},
                 status=status.HTTP_400_BAD_REQUEST,
             )
 
-        # Validate claim data
         serializer = QRCodeClaimSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         user = request.user
         validated_data = serializer.validated_data
 
-        # Find mahalla
         try:
             mahalla = Mahalla.objects.get(id=validated_data["mahalla"])
         except Mahalla.DoesNotExist:
@@ -473,25 +444,20 @@ class ClaimHouseView(APIView):
                 {"error": "Mahalla not found"}, status=status.HTTP_404_NOT_FOUND
             )
 
-        # Use atomic transaction to prevent race conditions
         try:
             with transaction.atomic():
-                # Re-fetch with lock
                 qr = QRCode.objects.select_for_update().get(uuid=uuid)
 
-                # Double-check after lock
                 if qr.house and qr.house.owner:
                     return Response(
                         {"error": "This house is already claimed"},
                         status=status.HTTP_400_BAD_REQUEST,
                     )
 
-                # Update user info
                 user.first_name = validated_data["first_name"]
                 user.last_name = validated_data["last_name"]
                 user.save(update_fields=["first_name", "last_name"])
 
-                # Update or create house
                 if qr.house:
                     qr.house.address = validated_data["address"]
                     qr.house.house_number = validated_data["house_number"]
@@ -509,7 +475,6 @@ class ClaimHouseView(APIView):
                     qr.house = house
                     qr.save()
 
-                # Log the claim
                 ScanLog.objects.create(
                     qr=qr, scanned_by=user, ip_address=get_client_ip(request)
                 )

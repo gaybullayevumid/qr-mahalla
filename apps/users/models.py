@@ -60,11 +60,12 @@ class PhoneOTP(models.Model):
         ordering = ["-created_at"]
 
     def is_expired(self):
-        """SMS kod 90 sekund (1.5 daqiqa) amal qiladi"""
+        """Check if SMS code has expired (valid for 90 seconds / 1.5 minutes)."""
         return timezone.now() > self.created_at + timezone.timedelta(seconds=90)
 
     @staticmethod
     def generate_code():
+        """Generate a random 6-digit verification code."""
         return str(random.randint(100000, 999999))
 
     def __str__(self):
@@ -72,7 +73,12 @@ class PhoneOTP(models.Model):
 
 
 class UserSession(models.Model):
-    """Track user sessions across devices"""
+    """
+    Model for tracking user authentication sessions across multiple devices.
+
+    Each user can have multiple active sessions on different devices.
+    Sessions store JWT refresh tokens and device information.
+    """
 
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL,

@@ -224,7 +224,6 @@ class Command(BaseCommand):
         skipped_districts = 0
 
         for region_name, districts in regions_data.items():
-            # Create or get region
             region, created = Region.objects.get_or_create(name=region_name)
             if created:
                 created_regions += 1
@@ -237,7 +236,6 @@ class Command(BaseCommand):
                     self.style.WARNING(f"- Skipped region (exists): {region_name}")
                 )
 
-            # Create districts
             for district_name in districts:
                 district, created = District.objects.get_or_create(
                     region=region, name=district_name

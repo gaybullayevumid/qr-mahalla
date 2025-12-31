@@ -5,24 +5,29 @@ from apps.houses.models import House
 
 
 class MahallaNestedWriteSerializer(serializers.ModelSerializer):
-    """Mahalla for write operations (nested in District)"""
+    """
+    Mahalla serializer for write operations when nested in District.
+
+    Supports creating and updating mahallas within a district context.
+    """
 
     class Meta:
         model = Mahalla
         fields = ("id", "name", "admin")
-        extra_kwargs = {
-            "id": {"required": False, "read_only": False}
-        }  # Allow id for updates
+        extra_kwargs = {"id": {"required": False, "read_only": False}}
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Remove unique validator from id field
         if "id" in self.fields:
             self.fields["id"].validators = []
 
 
 class MahallaSerializer(serializers.ModelSerializer):
-    """Neighborhood serializer - with district ID"""
+    """
+    Neighborhood serializer with district ID.
+
+    Provides basic neighborhood information including its district.
+    """
 
     class Meta:
         model = Mahalla
@@ -31,7 +36,11 @@ class MahallaSerializer(serializers.ModelSerializer):
 
 
 class MahallaCreateSerializer(serializers.ModelSerializer):
-    """Create neighborhood"""
+    """
+    Neighborhood serializer for creation.
+
+    Handles the creation of new neighborhoods with district assignment.
+    """
 
     district = serializers.PrimaryKeyRelatedField(queryset=District.objects.all())
     admin = serializers.PrimaryKeyRelatedField(
@@ -44,7 +53,11 @@ class MahallaCreateSerializer(serializers.ModelSerializer):
 
 
 class MahallaNestedSerializer(serializers.ModelSerializer):
-    """Neighborhood nested serializer - inside district"""
+    """
+    Neighborhood serializer for nested representation within a district.
+
+    Includes admin information and list of user IDs.
+    """
 
     admin_name = serializers.SerializerMethodField()
     users = serializers.SerializerMethodField()
@@ -59,7 +72,15 @@ class MahallaNestedSerializer(serializers.ModelSerializer):
         return None
 
     def get_users(self, obj):
-        """Get all user IDs (house owners) in this mahalla"""
+        """
+        Get all user IDs of house owners in this mahalla.
+
+        Args:
+            obj: The Mahalla instance.
+
+        Returns:
+            list: List of unique user IDs.
+        """
         houses = House.objects.filter(mahalla=obj, owner__isnull=False).select_related(
             "owner"
         )
@@ -68,7 +89,11 @@ class MahallaNestedSerializer(serializers.ModelSerializer):
 
 
 class DistrictSerializer(serializers.ModelSerializer):
-    """District serializer - with region ID"""
+    """
+    District serializer with region ID.
+
+    Provides basic district information including its region.
+    """
 
     class Meta:
         model = District
@@ -77,7 +102,11 @@ class DistrictSerializer(serializers.ModelSerializer):
 
 
 class DistrictCreateSerializer(serializers.ModelSerializer):
-    """Create district"""
+    """
+    District serializer for creation.
+
+    Handles the creation of new districts with region assignment.
+    """
 
     region = serializers.PrimaryKeyRelatedField(queryset=Region.objects.all())
 
@@ -87,7 +116,11 @@ class DistrictCreateSerializer(serializers.ModelSerializer):
 
 
 class DistrictNestedSerializer(serializers.ModelSerializer):
-    """District nested serializer - inside region with neighborhoods"""
+    """
+    District serializer for nested representation within a region.
+
+    Includes nested neighborhoods (mahallas) information.
+    """
 
     neighborhoods = MahallaNestedSerializer(
         many=True, read_only=True, source="mahallas"
@@ -99,7 +132,12 @@ class DistrictNestedSerializer(serializers.ModelSerializer):
 
 
 class DistrictNestedWriteSerializer(serializers.ModelSerializer):
-    """District for write operations (nested in Region or standalone)"""
+    """
+    District serializer for write operations.
+
+    Supports creating and updating districts with nested mahallas,
+    either within a region context or as standalone operations.
+    """
 
     mahallas = MahallaNestedWriteSerializer(many=True, required=False)
     region = serializers.PrimaryKeyRelatedField(
@@ -110,20 +148,28 @@ class DistrictNestedWriteSerializer(serializers.ModelSerializer):
         model = District
         fields = ("id", "name", "region", "mahallas")
         extra_kwargs = {
-            "id": {"required": False, "read_only": False},  # Allow id for updates
+            "id": {"required": False, "read_only": False},
         }
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        # Remove unique validator from id field
         if "id" in self.fields:
             self.fields["id"].validators = []
 
     def create(self, validated_data):
-        """Create district with nested mahallas"""
-        mahallas_data = validated_data.pop("mahallas", [])
+        """
+        Create a district with nested mahallas.
 
-        # Ensure region is provided for standalone district creation
+        Args:
+            validated_data: Validated data containing district and mahalla information.
+
+        Returns:
+            District: The created district instance.
+
+        Raises:
+            ValidationError: If region is not provided.
+        """
+        mahallas_data = validated_data.pop("mahallas", [])
         if "region" not in validated_data or validated_data["region"] is None:
             raise serializers.ValidationError(
                 {"region": "Region is required when creating a district"}
@@ -137,23 +183,28 @@ class DistrictNestedWriteSerializer(serializers.ModelSerializer):
         return district
 
     def update(self, instance, validated_data):
-        """Update district and nested mahallas"""
-        mahallas_data = validated_data.pop("mahallas", None)
+        """
+        Update a district and its nested mahallas.
 
-        # Update district fields
+        Args:
+            instance: The district instance to update.
+            validated_data: Validated data containing updates.
+
+        Returns:
+            District: The updated district instance.
+        """
+        mahallas_data = validated_data.pop("mahallas", None)
         instance.name = validated_data.get("name", instance.name)
         if "region" in validated_data:
             instance.region = validated_data.get("region")
         instance.save()
 
-        # Update mahallas if provided
         if mahallas_data is not None:
             existing_mahalla_ids = []
             for mahalla_data in mahallas_data:
-                mahalla_id = mahalla_data.pop("id", None)  # Pop id instead of get
+                mahalla_id = mahalla_data.pop("id", None)
 
                 if mahalla_id:
-                    # Update existing mahalla
                     try:
                         mahalla = Mahalla.objects.get(id=mahalla_id, district=instance)
                         mahalla.name = mahalla_data.get("name", mahalla.name)
@@ -163,18 +214,20 @@ class DistrictNestedWriteSerializer(serializers.ModelSerializer):
                     except Mahalla.DoesNotExist:
                         pass
                 else:
-                    # Create new mahalla
                     mahalla = Mahalla.objects.create(district=instance, **mahalla_data)
                     existing_mahalla_ids.append(mahalla.id)
 
-            # Delete mahallas not in the update
             instance.mahallas.exclude(id__in=existing_mahalla_ids).delete()
 
         return instance
 
 
 class RegionSerializer(serializers.ModelSerializer):
-    """Region serializer - simple"""
+    """
+    Simple region serializer.
+
+    Provides basic region information.
+    """
 
     class Meta:
         model = Region
@@ -183,7 +236,11 @@ class RegionSerializer(serializers.ModelSerializer):
 
 
 class RegionWriteSerializer(serializers.ModelSerializer):
-    """Region write serializer - with nested districts and mahallas"""
+    """
+    Region serializer for write operations.
+
+    Supports creating and updating regions with nested districts and mahallas.
+    """
 
     districts = DistrictNestedWriteSerializer(many=True, required=False)
 
@@ -211,33 +268,26 @@ class RegionWriteSerializer(serializers.ModelSerializer):
         instance.save()
 
         if districts_data is not None:
-            # Update or create districts
             existing_district_ids = []
             for district_data in districts_data:
                 mahallas_data = district_data.pop("mahallas", [])
-                district_id = district_data.pop("id", None)  # Pop id instead of get
+                district_id = district_data.pop("id", None)
 
                 if district_id:
-                    # Update existing district
                     district = District.objects.get(id=district_id, region=instance)
                     district.name = district_data.get("name", district.name)
                     district.save()
                     existing_district_ids.append(district.id)
                 else:
-                    # Create new district (id already popped, won't cause unique error)
                     district = District.objects.create(region=instance, **district_data)
                     existing_district_ids.append(district.id)
 
-                # Handle mahallas
                 if mahallas_data:
                     existing_mahalla_ids = []
                     for mahalla_data in mahallas_data:
-                        mahalla_id = mahalla_data.pop(
-                            "id", None
-                        )  # Pop id instead of get
+                        mahalla_id = mahalla_data.pop("id", None)
 
                         if mahalla_id:
-                            # Update existing mahalla
                             mahalla = Mahalla.objects.get(
                                 id=mahalla_id, district=district
                             )
@@ -246,23 +296,25 @@ class RegionWriteSerializer(serializers.ModelSerializer):
                             mahalla.save()
                             existing_mahalla_ids.append(mahalla.id)
                         else:
-                            # Create new mahalla
+
                             mahalla = Mahalla.objects.create(
                                 district=district, **mahalla_data
                             )
                             existing_mahalla_ids.append(mahalla.id)
 
-                    # Delete mahallas not in the update
                     district.mahallas.exclude(id__in=existing_mahalla_ids).delete()
 
-            # Delete districts not in the update
             instance.districts.exclude(id__in=existing_district_ids).delete()
 
         return instance
 
 
 class RegionCreateSerializer(serializers.ModelSerializer):
-    """Create region - only name required"""
+    """
+    Region serializer for creation.
+
+    Only requires the region name for creation.
+    """
 
     class Meta:
         model = Region
@@ -270,7 +322,11 @@ class RegionCreateSerializer(serializers.ModelSerializer):
 
 
 class RegionDetailSerializer(serializers.ModelSerializer):
-    """Region detail serializer - with districts and neighborhoods"""
+    """
+    Region serializer for detailed representation.
+
+    Includes nested districts and neighborhoods information.
+    """
 
     districts = DistrictNestedSerializer(many=True, read_only=True)
 

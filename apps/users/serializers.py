@@ -20,7 +20,6 @@ class HouseNestedSerializer(serializers.Serializer):
         from apps.houses.models import House
 
         if isinstance(instance, House):
-            # Converting House model instance
             return {
                 "id": instance.id,
                 "mahalla": instance.mahalla.id,
@@ -29,7 +28,6 @@ class HouseNestedSerializer(serializers.Serializer):
                 "house_number": instance.house_number or "",
                 "address": instance.address,
             }
-        # If it's already a dict (from create/update), return as is
         return super().to_representation(instance)
 
     def validate(self, data):
@@ -46,13 +44,11 @@ class HouseNestedSerializer(serializers.Serializer):
                     id=mahalla_id
                 )
 
-                # Validate district matches
                 if district_id and mahalla.district.id != district_id:
                     raise serializers.ValidationError(
                         f"Mahalla {mahalla.name} does not belong to district ID {district_id}"
                     )
 
-                # Validate region matches
                 if region_id and mahalla.district.region.id != region_id:
                     raise serializers.ValidationError(
                         f"Mahalla {mahalla.name} does not belong to region ID {region_id}"
@@ -67,7 +63,12 @@ class HouseNestedSerializer(serializers.Serializer):
 
 
 class UserMinimalSerializer(serializers.ModelSerializer):
-    """Minimal user info - faqat ism, familiya, telefon (QR scan uchun)"""
+    """
+    Minimal user information serializer.
+
+    Returns only essential user data: ID, phone, first name, and last name.
+    Used for QR code scanning and basic user references.
+    """
 
     class Meta:
         model = User
@@ -76,7 +77,12 @@ class UserMinimalSerializer(serializers.ModelSerializer):
 
 
 class UserListSerializer(serializers.ModelSerializer):
-    """User list serializer with houses - role-based fields"""
+    """
+    User list serializer with associated houses.
+
+    Implements role-based field filtering to control what data
+    different user roles can access.
+    """
 
     houses = serializers.SerializerMethodField()
 
@@ -94,22 +100,25 @@ class UserListSerializer(serializers.ModelSerializer):
         read_only_fields = ("id",)
 
     def get_houses(self, obj):
-        """Get all houses owned by this user with their scanned QR codes - role-based"""
+        """
+        Get all houses owned by this user with their scanned QR codes.
+
+        Access is role-based:
+        - Admin/Government/Leader: can see all houses
+        - Client: can only see their own houses
+        """
         from apps.houses.models import House
         from apps.qrcodes.models import QRCode
 
         request = self.context.get("request")
 
-        # Agar request yo'q yoki user authenticated emas - houses ko'rsatmaymiz
         if not request or not request.user or not request.user.is_authenticated:
             return []
 
         user_role = getattr(request.user, "role", "client")
 
-        # Admin va government barcha uylarni ko'radi
         if user_role in ["admin", "gov", "leader"]:
-            pass  # Houses ko'rsatiladi
-        # Oddiy client faqat o'z uylarini ko'radi
+            pass
         elif user_role == "client" and obj.id != request.user.id:
             return []
 
@@ -119,7 +128,6 @@ class UserListSerializer(serializers.ModelSerializer):
 
         house_list = []
         for house in houses:
-            # Get QR code for this house
             try:
                 qr_code = QRCode.objects.get(house=house)
                 scanned_qr = qr_code.uuid
@@ -141,10 +149,15 @@ class UserListSerializer(serializers.ModelSerializer):
         return house_list
 
     def to_representation(self, instance):
-        """Role-based field filtering"""
+        """
+        Filter fields based on the requesting user's role.
+
+        - Unauthenticated: minimal data only
+        - Admin/Government/Leader: all data
+        - Client: full data for self, minimal for others
+        """
         request = self.context.get("request")
 
-        # Avval to'liq ma'lumot olamiz
         data = super().to_representation(instance)
 
         if (
@@ -152,7 +165,6 @@ class UserListSerializer(serializers.ModelSerializer):
             or not hasattr(request, "user")
             or not request.user.is_authenticated
         ):
-            # Non-authenticated users: faqat minimal ma'lumot
             return {
                 "id": data.get("id"),
                 "phone": data.get("phone"),
@@ -162,25 +174,19 @@ class UserListSerializer(serializers.ModelSerializer):
 
         user_role = getattr(request.user, "role", "client")
 
-        # Admin, gov, leader: barcha ma'lumotlar
         if user_role in ["admin", "gov", "leader"]:
             return data
 
-        # Oddiy client: faqat o'zini to'liq ko'radi
         if user_role == "client":
             if instance.id == request.user.id:
-                # O'z ma'lumotlari - hammasi
                 return data
             else:
-                # Boshqa userlar - minimal
                 return {
                     "id": data.get("id"),
                     "phone": data.get("phone"),
                     "first_name": data.get("first_name"),
                     "last_name": data.get("last_name"),
                 }
-
-        # Default: minimal
         return {
             "id": data.get("id"),
             "phone": data.get("phone"),
@@ -213,15 +219,11 @@ class UserCreateUpdateSerializer(serializers.ModelSerializer):
         }
 
     def validate(self, data):
-        """Validate the entire data"""
-        print("=" * 70)
-        print("✅ VALIDATION")
-        print(f"Data: {data}")
-        print("=" * 70)
+        """Validate the entire data structure."""
         return data
 
     def validate_phone(self, value):
-        """Validate phone number format"""
+        """Validate phone number format (must match Uzbekistan format)."""
         if value:
             phone_pattern = re.compile(r"^\+?998[0-9]{9}$")
             if not phone_pattern.match(value):
@@ -231,17 +233,20 @@ class UserCreateUpdateSerializer(serializers.ModelSerializer):
         return value
 
     def create(self, validated_data):
-        """Create user with houses"""
+        """
+        Create a new user with associated houses.
+
+        Sets default role to 'client' if not specified.
+        Requires phone number for user creation.
+        """
         from apps.houses.models import House
         from apps.regions.models import Mahalla
 
         houses_data = validated_data.pop("houses", [])
 
-        # Set default role if not provided
         if "role" not in validated_data:
             validated_data["role"] = "client"
 
-        # Ensure phone is provided for user creation
         if "phone" not in validated_data:
             raise serializers.ValidationError(
                 {"phone": "Phone number is required when creating a user"}
@@ -249,10 +254,8 @@ class UserCreateUpdateSerializer(serializers.ModelSerializer):
 
         user = User.objects.create(**validated_data)
 
-        # Create houses for this user
         for house_data in houses_data:
             mahalla_id = house_data.pop("mahalla")
-            # Remove region and district as they're not part of House model
             house_data.pop("region", None)
             house_data.pop("district", None)
 
@@ -260,36 +263,26 @@ class UserCreateUpdateSerializer(serializers.ModelSerializer):
                 mahalla = Mahalla.objects.get(id=mahalla_id)
                 House.objects.create(owner=user, mahalla=mahalla, **house_data)
             except Mahalla.DoesNotExist:
-                pass  # Skip if mahalla not found
+                pass
 
         return user
 
     def update(self, instance, validated_data):
-        """Update user and their houses"""
+        """
+        Update user instance and their associated houses.
+
+        Updates or creates houses as needed and removes any houses
+        not included in the update data.
+        """
         from apps.houses.models import House
         from apps.regions.models import Mahalla
 
-        # Debug logging
-        print("=" * 70)
-        print("🔧 USER UPDATE")
-        print(f"Instance: User {instance.id}")
-        print(f"Validated data: {validated_data}")
-        print("=" * 70)
-
         houses_data = validated_data.pop("houses", None)
-
-        if houses_data:
-            print(f"📦 Houses data: {houses_data}")
-            print(f"Houses count: {len(houses_data)}")
-
-        # Update user fields
         for attr, value in validated_data.items():
             setattr(instance, attr, value)
         instance.save()
 
-        # Update houses if provided
         if houses_data is not None:
-            # Get existing house IDs
             existing_house_ids = set(
                 House.objects.filter(owner=instance).values_list("id", flat=True)
             )
@@ -302,12 +295,10 @@ class UserCreateUpdateSerializer(serializers.ModelSerializer):
                 try:
                     mahalla = Mahalla.objects.get(id=mahalla_id)
 
-                    # Remove region and district as they're not part of House model
                     house_data.pop("region", None)
                     house_data.pop("district", None)
 
                     if house_id and house_id in existing_house_ids:
-                        # Update existing house
                         house = House.objects.get(id=house_id, owner=instance)
                         house.mahalla = mahalla
                         house.address = house_data.get("address", house.address)
@@ -317,7 +308,6 @@ class UserCreateUpdateSerializer(serializers.ModelSerializer):
                         house.save()
                         updated_house_ids.add(house_id)
                     else:
-                        # Create new house
                         house = House.objects.create(
                             owner=instance,
                             mahalla=mahalla,
@@ -326,9 +316,8 @@ class UserCreateUpdateSerializer(serializers.ModelSerializer):
                         )
                         updated_house_ids.add(house.id)
                 except Mahalla.DoesNotExist:
-                    pass  # Skip if mahalla not found
+                    pass
 
-            # Delete houses that were not in the update
             houses_to_delete = existing_house_ids - updated_house_ids
             if houses_to_delete:
                 House.objects.filter(id__in=houses_to_delete, owner=instance).delete()
@@ -337,7 +326,13 @@ class UserCreateUpdateSerializer(serializers.ModelSerializer):
 
 
 class AuthSerializer(serializers.Serializer):
-    """Combined serializer for both registration and verification"""
+    """
+    Combined serializer for authentication flow.
+
+    Handles both SMS code sending and verification:
+    - Without code: sends SMS verification code
+    - With code: verifies code and authenticates user
+    """
 
     phone = serializers.CharField(max_length=15)
     code = serializers.CharField(
@@ -349,7 +344,7 @@ class AuthSerializer(serializers.Serializer):
     )
 
     def validate_phone(self, value):
-        # Check phone number format
+        """Validate phone number format (Uzbekistan format: +998XXXXXXXXX)."""
         phone_pattern = re.compile(r"^\+?998[0-9]{9}$")
         if not phone_pattern.match(value):
             raise serializers.ValidationError(
@@ -358,7 +353,7 @@ class AuthSerializer(serializers.Serializer):
         return value
 
     def validate_code(self, value):
-        # Code must contain only digits and be 6 digits (if provided)
+        """Validate verification code format (must be 6 digits if provided)."""
         if value and value.strip():
             if not value.isdigit():
                 raise serializers.ValidationError("Code must contain only digits")

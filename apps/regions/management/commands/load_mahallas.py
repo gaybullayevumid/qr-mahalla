@@ -7,7 +7,6 @@ class Command(BaseCommand):
     help = "Load sample mahallas (neighborhoods) into database"
 
     def handle(self, *args, **options):
-        # Create or get admin user
         admin_user, created = User.objects.get_or_create(
             phone="+998930850955",
             defaults={
@@ -25,33 +24,27 @@ class Command(BaseCommand):
         else:
             self.stdout.write(self.style.WARNING(f"- Admin exists: {admin_user.phone}"))
 
-        # Sample mahallas data for different regions
         mahallas_data = [
-            # Toshkent shahri - Chilonzor
             {
                 "region": "Toshkent shahri",
                 "district": "Chilonzor",
                 "mahallas": ["Qatortol", "Chilonzor", "Sebzor", "Algoritmchilar"],
             },
-            # Toshkent shahri - Yunusobod
             {
                 "region": "Toshkent shahri",
                 "district": "Yunusobod",
                 "mahallas": ["Yunusobod", "Minor", "Shayhantohur", "Beruniy"],
             },
-            # Navoiy viloyati - Karmana
             {
                 "region": "Navoiy viloyati",
                 "district": "Karmana",
                 "mahallas": ["Umid", "Navbahor", "Mustaqillik", "O'zbekiston"],
             },
-            # Samarqand viloyati - Samarqand
             {
                 "region": "Samarqand viloyati",
                 "district": "Samarqand",
                 "mahallas": ["Registon", "Siob", "Ishrat", "Afrosiyob"],
             },
-            # Farg'ona viloyati - Farg'ona
             {
                 "region": "Farg'ona viloyati",
                 "district": "Farg'ona",

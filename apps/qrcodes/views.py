@@ -497,24 +497,33 @@ class ClaimHouseView(APIView):
         max_retries = 20
         last_error = None
 
-        # Get initial max house ID OUTSIDE transaction to track retries
         from django.db.models import Max
         from apps.qrcodes.models import QRCode as QRCodeModel
-
-        max_house_id = House.objects.aggregate(Max("id"))["id__max"] or 0
-        max_qr_house_id = (
-            QRCodeModel.objects.filter(house_id__isnull=False).aggregate(
-                Max("house_id")
-            )["house_id__max"]
-            or 0
-        )
-
-        # Start with max + 1, increment on each retry
-        next_house_id = max(max_house_id, max_qr_house_id) + 1
 
         for attempt in range(max_retries):
             try:
                 with transaction.atomic():
+                    # Lock QRCode and House tables to prevent race conditions
+                    # This ensures only one transaction can get max ID at a time
+                    QRCodeModel.objects.select_for_update().exists()
+                    House.objects.select_for_update().exists()
+
+                    # Now safely get max IDs within locked transaction
+                    max_house_id = House.objects.aggregate(Max("id"))["id__max"] or 0
+                    max_qr_house_id = (
+                        QRCodeModel.objects.filter(house_id__isnull=False).aggregate(
+                            Max("house_id")
+                        )["house_id__max"]
+                        or 0
+                    )
+
+                    # Start with max + 1, then add attempt number for retries
+                    next_house_id = max(max_house_id, max_qr_house_id) + 1 + attempt
+
+                    logger.info(
+                        f"Attempt {attempt + 1}: Will use house ID {next_house_id} "
+                        f"(max_house={max_house_id}, max_qr={max_qr_house_id}, attempt={attempt})"
+                    )
                     # Lock the QR code row to prevent race conditions
                     qr = (
                         QRCode.objects.select_for_update()
@@ -563,11 +572,14 @@ class ClaimHouseView(APIView):
                         house = qr.house
                     else:
                         # Create new house with safe ID
+                        # For first attempt, use max+1
+                        # For retries, add attempt number to avoid conflicts
                         logger.info(
                             f"Creating new house (attempt {attempt + 1}) with ID {next_house_id}"
                         )
 
-                        # Create house with explicit ID (increments each retry)
+                        # IMPORTANT: Explicitly set ID to override GapFillingIDMixin
+                        # which might choose an ID that's already linked to a QRCode
                         house = House(
                             id=next_house_id,
                             address=validated_data["address"],
@@ -575,7 +587,9 @@ class ClaimHouseView(APIView):
                             mahalla=mahalla,
                             owner=user,
                         )
-                        house.save()
+
+                        # Save with force_insert to ensure ID is respected
+                        house.save(force_insert=True)
                         logger.info(f"Created house with ID {house.id}")
 
                         # Link QR to house
@@ -633,9 +647,7 @@ class ClaimHouseView(APIView):
                     or "qrcodes_qrcode.house_id" in error_msg
                 ):
                     if attempt < max_retries - 1:
-                        # Increment ID for next retry
-                        next_house_id += 1
-                        logger.info(f"Retrying with next ID: {next_house_id}")
+                        logger.info(f"Will retry with ID {next_house_id + 1}")
                         continue
 
                 # For other errors, stop retrying

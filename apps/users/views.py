@@ -177,11 +177,9 @@ class AuthAPIView(APIView):
 
             house_list = []
             for house in houses:
-                try:
-                    qr_code = QRCode.objects.get(house=house)
-                    scanned_qr = qr_code.uuid
-                except QRCode.DoesNotExist:
-                    scanned_qr = None
+                # Get first QR code for this house (ForeignKey allows multiple)
+                qr_code = house.qr_codes.first()
+                scanned_qr = qr_code.uuid if qr_code else None
 
                 house_list.append(
                     {
@@ -251,11 +249,9 @@ class UserProfileAPIView(APIView):
 
         house_list = []
         for house in houses:
-            try:
-                qr_code = QRCode.objects.get(house=house)
-                scanned_qr = qr_code.uuid
-            except QRCode.DoesNotExist:
-                scanned_qr = None
+            # Get first QR code for this house (ForeignKey allows multiple)
+            qr_code = house.qr_codes.first()
+            scanned_qr = qr_code.uuid if qr_code else None
 
             house_list.append(
                 {

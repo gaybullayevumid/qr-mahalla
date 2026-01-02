@@ -23,10 +23,10 @@ class QRCode(GapFillingIDMixin, models.Model):
         max_length=16, unique=True, editable=False, verbose_name="UUID"
     )
 
-    house = models.OneToOneField(
+    house = models.ForeignKey(
         House,
         on_delete=models.CASCADE,
-        related_name="qr_code",
+        related_name="qr_codes",
         verbose_name="House",
         null=True,
         blank=True,

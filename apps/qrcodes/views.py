@@ -434,6 +434,7 @@ class ClaimHouseView(APIView):
                 "qr_uuid": qr.uuid,
                 "qr_id": qr.id,
                 "has_house": qr.house is not None,
+                "is_claimed": bool(qr.house and qr.house.owner is not None),
                 "can_claim": not (qr.house and qr.house.owner),
             }
 
@@ -595,6 +596,7 @@ class ClaimHouseView(APIView):
                                 "id": qr.id,
                                 "uuid": qr.uuid,
                                 "qr_url": qr.get_qr_url(),
+                                "is_claimed": True,
                             },
                         }
                     )

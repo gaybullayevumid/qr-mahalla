@@ -502,14 +502,44 @@ class ClaimHouseView(APIView):
         import time
         import random
 
-        logger.info("Claim start: Using unique timestamp+random ID for each retry")
+        logger.info("Claim start: Finding safe House ID from database")
 
         for attempt in range(max_retries):
-            # Generate UNIQUE ID for each retry using current time in milliseconds
-            # This ensures each retry uses a completely different ID
-            timestamp_ms = int(time.time() * 1000)  # Milliseconds
-            random_suffix = random.randint(1, 999)  # 3 digits
-            next_house_id = timestamp_ms * 1000 + random_suffix  # Huge unique number
+            # Generate UNIQUE ID for each retry
+            # Strategy: Query database for currently used house_ids in QRCode table
+            # Then generate a safe ID that's guaranteed not to conflict
+
+            # Get all house_ids currently referenced by QRCodes
+            used_house_ids = set(
+                QRCodeModel.objects.filter(house_id__isnull=False).values_list(
+                    "house_id", flat=True
+                )
+            )
+
+            # Generate timestamp-based ID with larger random range
+            timestamp_ms = int(time.time() * 1000)  # Milliseconds since epoch
+            random_suffix = random.randint(1000, 999999)  # 6 digits for more uniqueness
+            next_house_id = (
+                timestamp_ms * 1000 + random_suffix
+            )  # Very large unique number
+
+            # Keep incrementing until we find an unused ID
+            max_id_search = 100
+            for search_attempt in range(max_id_search):
+                if next_house_id not in used_house_ids:
+                    break
+                next_house_id += 1
+            else:
+                # If we couldn't find unused ID, try fresh timestamp
+                logger.warning(
+                    f"Couldn't find unused ID after {max_id_search} attempts, retrying..."
+                )
+                continue
+
+            logger.info(
+                f"Attempt {attempt + 1}/{max_retries}: Generated house ID {next_house_id}, "
+                f"used_ids count: {len(used_house_ids)}"
+            )
 
             try:
                 with transaction.atomic():
@@ -579,8 +609,18 @@ class ClaimHouseView(APIView):
                             f"Creating new house (attempt {attempt + 1}) with ID {next_house_id}"
                         )
 
-                        # Before creating house, verify this ID isn't already used by another QR
-                        # This prevents IntegrityError before it happens
+                        # Final safety check: verify this ID isn't already in database
+                        # (should be guaranteed by our pre-query, but double-check)
+                        if next_house_id in used_house_ids:
+                            logger.error(
+                                f"CRITICAL: ID {next_house_id} is in used_house_ids set! "
+                                f"This should not happen. Retrying..."
+                            )
+                            raise IntegrityError(
+                                f"house_id {next_house_id} found in used_house_ids"
+                            )
+
+                        # Extra paranoid check: query database again within transaction
                         existing_qr_with_id = (
                             QRCodeModel.objects.filter(house_id=next_house_id)
                             .exclude(id=qr.id)
@@ -588,23 +628,13 @@ class ClaimHouseView(APIView):
                         )
 
                         if existing_qr_with_id:
-                            # This ID is already in use, skip to next retry
-                            logger.warning(
-                                f"ID {next_house_id} already used by QR {existing_qr_with_id.uuid}, "
-                                f"will try next ID"
+                            logger.error(
+                                f"CRITICAL: ID {next_house_id} already used by QR {existing_qr_with_id.uuid}! "
+                                f"This should not happen. Retrying..."
                             )
-                            # Raise IntegrityError to trigger retry
                             raise IntegrityError(
                                 f"house_id {next_house_id} already linked to QR {existing_qr_with_id.uuid}"
                             )
-
-                        # Double-check: Get all used house IDs for debugging
-                        used_ids = list(
-                            QRCodeModel.objects.filter(house_id__isnull=False)
-                            .values_list("house_id", flat=True)
-                            .order_by("house_id")[:20]
-                        )
-                        logger.info(f"Currently used house IDs in QRCode: {used_ids}")
 
                         # IMPORTANT: Explicitly set ID to override GapFillingIDMixin
                         # which might choose an ID that's already linked to a QRCode

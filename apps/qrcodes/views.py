@@ -553,18 +553,48 @@ class ClaimHouseView(APIView):
                     qr.house.save()
                     house = qr.house
                 else:
-                    # Create new house with AUTO-GENERATED ID
-                    # Let Django/GapFillingIDMixin handle ID assignment
-                    logger.info("Creating new house with auto-generated ID")
+                    # Create new house with SAFE ID calculated inside transaction
+                    # CRITICAL: Must calculate safe ID while QRCode is locked
+                    # to avoid race conditions with other concurrent requests
+                    logger.info("Calculating safe House ID inside transaction")
+                    
+                    # Get existing House IDs
+                    existing_house_ids = set(
+                        House.objects.values_list('id', flat=True)
+                    )
+                    
+                    # Get house_ids reserved by QRCodes (CRITICAL!)
+                    # These IDs cannot be reused even if House was deleted
+                    reserved_by_qrcodes = set(
+                        QRCode.objects.filter(house_id__isnull=False)
+                        .values_list('house_id', flat=True)
+                    )
+                    
+                    # Combine both sets
+                    all_used_ids = existing_house_ids | reserved_by_qrcodes
+                    
+                    # Find first available ID
+                    safe_house_id = 1
+                    while safe_house_id in all_used_ids:
+                        safe_house_id += 1
+                    
+                    logger.info(
+                        f"Safe House ID: {safe_house_id} "
+                        f"(existing houses: {len(existing_house_ids)}, "
+                        f"reserved by QRs: {len(reserved_by_qrcodes)}, "
+                        f"total used: {len(all_used_ids)})"
+                    )
 
+                    # Create house with explicit safe ID
                     house = House(
+                        id=safe_house_id,  # Explicitly set safe ID
                         address=validated_data["address"],
                         house_number=validated_data["house_number"],
                         mahalla=mahalla,
                         owner=user,
                     )
-                    house.save()  # Let Django auto-generate ID
-                    logger.info(f"Created house with auto-generated ID {house.id}")
+                    house.save(force_insert=True)  # Force insert with our ID
+                    logger.info(f"Created house with ID {house.id}")
 
                     # Link QR to house
                     qr.house = house

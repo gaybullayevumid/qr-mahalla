@@ -549,10 +549,18 @@ class ClaimHouseView(APIView):
                             status=status.HTTP_400_BAD_REQUEST,
                         )
 
-                    # Update user info
+                    # Update user info with QR code reference
                     user.first_name = validated_data["first_name"]
                     user.last_name = validated_data["last_name"]
-                    user.save(update_fields=["first_name", "last_name"])
+                    user.scanned_qr_code = qr.uuid  # Save scanned QR UUID
+                    user.save(
+                        update_fields=["first_name", "last_name", "scanned_qr_code"]
+                    )
+
+                    logger.info(
+                        f"Updated user {user.phone}: {user.first_name} {user.last_name}, "
+                        f"scanned QR: {user.scanned_qr_code}"
+                    )
 
                     if qr.house:
                         # Update existing house

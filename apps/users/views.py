@@ -276,6 +276,7 @@ class UserProfileAPIView(APIView):
             "first_name": user.first_name,
             "last_name": user.last_name,
             "is_verified": user.is_verified,
+            "scanned_qr_code": user.scanned_qr_code,  # Include scanned QR code
             "houses": house_list,
         }
 

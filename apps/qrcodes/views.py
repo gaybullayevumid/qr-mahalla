@@ -535,19 +535,63 @@ class ClaimHouseView(APIView):
                     # Create new house for this QR code
                     logger.info(f"Creating new house for QR {uuid}")
 
-                    # Simple and safe approach: create house and handle any conflicts
-                    house = House.objects.create(
-                        address=validated_data["address"],
-                        house_number=validated_data["house_number"],
-                        mahalla=mahalla,
-                        owner=user,
-                    )
-                    logger.info(f"Successfully created house {house.id}")
+                    # Safe approach: find a house ID that doesn't have a QR code
+                    max_retries = 20
+                    house = None
 
-                    # Link the QR code to the house
-                    qr.house = house
-                    qr.save(update_fields=["house"])
-                    logger.info(f"Successfully linked QR {qr.uuid} to house {house.id}")
+                    for attempt in range(max_retries):
+                        try:
+                            # Let GapFillingIDMixin find the next ID
+                            next_id = House.get_next_available_id()
+                            logger.info(
+                                f"Attempt {attempt + 1}: Trying to create house with ID {next_id}"
+                            )
+
+                            # Create house with specific ID
+                            house = House(
+                                id=next_id,
+                                address=validated_data["address"],
+                                house_number=validated_data["house_number"],
+                                mahalla=mahalla,
+                                owner=user,
+                            )
+                            house.save()
+                            logger.info(f"Successfully created house {house.id}")
+
+                            # Link the QR code to the house
+                            qr.house = house
+                            qr.save(update_fields=["house"])
+                            logger.info(
+                                f"Successfully linked QR {qr.uuid} to house {house.id}"
+                            )
+                            break  # Success!
+
+                        except IntegrityError as ie:
+                            logger.warning(f"Attempt {attempt + 1} failed: {str(ie)}")
+
+                            # If house was created, delete it to free the ID
+                            if house and house.id:
+                                try:
+                                    House.objects.filter(id=house.id).delete()
+                                except:
+                                    pass
+
+                            house = None
+
+                            # If this is a house_id constraint error and we have retries left, continue
+                            if (
+                                "house_id" in str(ie).lower()
+                                and attempt < max_retries - 1
+                            ):
+                                continue
+
+                            # Otherwise, re-raise the error
+                            raise
+
+                    if house is None:
+                        raise IntegrityError(
+                            f"Failed to create house after {max_retries} attempts"
+                        )
 
                 ScanLog.objects.create(
                     qr=qr, scanned_by=user, ip_address=get_client_ip(request)

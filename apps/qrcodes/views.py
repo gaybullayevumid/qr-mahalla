@@ -502,20 +502,14 @@ class ClaimHouseView(APIView):
         import time
         import random
 
-        # Strategy: Use timestamp-based ID to avoid conflicts with old data
-        # Format: timestamp (seconds since epoch) + random suffix
-        # This ensures unique IDs even with concurrent requests and old data
-        timestamp_base = int(time.time())  # Current Unix timestamp
-        random_offset = random.randint(1, 1000)  # Random 1-1000
-        base_next_id = timestamp_base * 1000 + random_offset  # e.g., 1704207600000
-
-        logger.info(
-            f"Claim start: Using timestamp-based ID starting from {base_next_id}"
-        )
+        logger.info("Claim start: Using unique timestamp+random ID for each retry")
 
         for attempt in range(max_retries):
-            # Use different ID for each attempt
-            next_house_id = base_next_id + attempt
+            # Generate UNIQUE ID for each retry using current time in milliseconds
+            # This ensures each retry uses a completely different ID
+            timestamp_ms = int(time.time() * 1000)  # Milliseconds
+            random_suffix = random.randint(1, 999)  # 3 digits
+            next_house_id = timestamp_ms * 1000 + random_suffix  # Huge unique number
 
             try:
                 with transaction.atomic():

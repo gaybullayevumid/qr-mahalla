@@ -290,7 +290,7 @@ class ScanQRCodeView(APIView):
     GET/POST endpoint for QR code scanning by UUID.
 
     Main endpoint for all users to scan QR codes.
-    
+
     GET: Scan QR code and get status
     POST: Scan QR code with user data (saves user info)
     """
@@ -317,11 +317,11 @@ class ScanQRCodeView(APIView):
             return Response(_get_unclaimed_response(qr, user_role))
 
         return Response(_get_claimed_response(qr, user_role, is_owner))
-    
+
     def post(self, request: Request, uuid: str) -> Response:
         """
         Handle QR code scan via POST request with user data.
-        
+
         Accepts user info in request body and saves it:
         {
             "first_name": "John",
@@ -343,17 +343,19 @@ class ScanQRCodeView(APIView):
             # Update user info from request body
             first_name = request.data.get("first_name")
             last_name = request.data.get("last_name")
-            
+
             if first_name or last_name:
                 if first_name:
                     request.user.first_name = first_name
                 if last_name:
                     request.user.last_name = last_name
-                
+
                 # Save scanned QR UUID
                 request.user.scanned_qr_code = qr.uuid
-                request.user.save(update_fields=["first_name", "last_name", "scanned_qr_code"])
-        
+                request.user.save(
+                    update_fields=["first_name", "last_name", "scanned_qr_code"]
+                )
+
         # Log the scan
         _log_qr_scan(request, qr)
 

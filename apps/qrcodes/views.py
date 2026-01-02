@@ -550,12 +550,16 @@ class ClaimHouseView(APIView):
                         logger.info(f"Creating new house (attempt {attempt + 1})")
 
                         # Use max ID + 1 to avoid all conflicts
-                        # This is safer than GapFillingIDMixin for models with OneToOne relationships
+                        # Lock House table to prevent race conditions
                         from django.db.models import Max
 
-                        max_id = House.objects.aggregate(Max("id"))["id__max"] or 0
-                        house_id = max_id + 1
-                        logger.info(f"Using ID: {house_id} (max_id + 1)")
+                        # Get max_id with select_for_update lock on House table
+                        # This prevents concurrent requests from getting the same max_id
+                        max_id_obj = (
+                            House.objects.select_for_update().order_by("-id").first()
+                        )
+                        house_id = (max_id_obj.id if max_id_obj else 0) + 1
+                        logger.info(f"Using ID: {house_id} (max_id + 1, locked)")
 
                         house = House(
                             id=house_id,

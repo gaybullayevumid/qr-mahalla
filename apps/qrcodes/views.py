@@ -536,9 +536,7 @@ class ClaimHouseView(APIView):
                 user.first_name = validated_data["first_name"]
                 user.last_name = validated_data["last_name"]
                 user.scanned_qr_code = qr.uuid  # Save scanned QR UUID
-                user.save(
-                    update_fields=["first_name", "last_name", "scanned_qr_code"]
-                )
+                user.save(update_fields=["first_name", "last_name", "scanned_qr_code"])
 
                 logger.info(
                     f"Updated user {user.phone}: {user.first_name} {user.last_name}, "
@@ -571,9 +569,7 @@ class ClaimHouseView(APIView):
                     # Link QR to house
                     qr.house = house
                     qr.save(update_fields=["house"])
-                    logger.info(
-                        f"Successfully linked QR {qr.uuid} to house {house.id}"
-                    )
+                    logger.info(f"Successfully linked QR {qr.uuid} to house {house.id}")
 
                 # Log the scan
                 ScanLog.objects.create(
@@ -609,14 +605,16 @@ class ClaimHouseView(APIView):
 
         except QRCode.DoesNotExist:
             return Response(
-                {"error": "QR code not found"},
-                status=status.HTTP_404_NOT_FOUND
+                {"error": "QR code not found"}, status=status.HTTP_404_NOT_FOUND
             )
         except IntegrityError as ie:
             error_msg = str(ie)
             logger.error(f"IntegrityError during claim: {error_msg}")
 
-            if "unique constraint" in error_msg.lower() or "duplicate" in error_msg.lower():
+            if (
+                "unique constraint" in error_msg.lower()
+                or "duplicate" in error_msg.lower()
+            ):
                 return Response(
                     {
                         "error": "Bu uy allaqachon boshqa QR kod bilan bog'langan.",

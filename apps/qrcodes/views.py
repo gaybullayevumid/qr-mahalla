@@ -595,29 +595,46 @@ class ClaimHouseView(APIView):
                             logger.info(
                                 f"Cleaned up {len(orphaned_ids)} orphaned house_ids"
                             )
+                            
+                            # IMPORTANT: Refresh the used_house_ids_in_qr after cleanup
+                            used_house_ids_in_qr = set(
+                                QRCode.objects.filter(house_id__isnull=False).values_list(
+                                    "house_id", flat=True
+                                )
+                            )
+                            logger.info(
+                                f"After cleanup: {len(used_house_ids_in_qr)} house_ids remain in QRCode"
+                            )
 
-                        # Generate random ID that's NOT in either set
+                        # Combine both sets to get ALL unavailable IDs
+                        all_unavailable_ids = existing_house_ids | used_house_ids_in_qr
+                        
+                        logger.info(
+                            f"Total unavailable IDs: {len(all_unavailable_ids)} "
+                            f"(houses: {len(existing_house_ids)}, QR reserved: {len(used_house_ids_in_qr)})"
+                        )
+
+                        # Generate random ID that's NOT in unavailable set
                         random_id = random.randint(1_000_000_000, 9_999_999_999)
 
-                        # Make sure it's not in used IDs (after cleanup)
+                        # Make sure it's not in used IDs
                         attempts_to_find_id = 0
-                        while (
-                            random_id in existing_house_ids
-                            or random_id in used_house_ids_in_qr
-                        ):
+                        while random_id in all_unavailable_ids:
                             random_id = random.randint(1_000_000_000, 9_999_999_999)
                             attempts_to_find_id += 1
                             if attempts_to_find_id > 100:
-                                # Fallback: use timestamp-based ID
+                                # Fallback: use timestamp-based unique ID
                                 import time
-
                                 random_id = int(time.time() * 1000000)
+                                # Double check this timestamp ID is also available
+                                while random_id in all_unavailable_ids:
+                                    random_id += 1
                                 break
 
                         logger.info(
-                            f"Creating house with random ID {random_id} "
-                            f"(existing houses: {len(existing_house_ids)}, "
-                            f"used in QR: {len(used_house_ids_in_qr)})"
+                            f"Selected safe House ID: {random_id} "
+                            f"(after {attempts_to_find_id} attempts)"
+                        )
                         )
 
                         # Create house with random ID

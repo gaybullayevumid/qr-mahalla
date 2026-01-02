@@ -1,7 +1,7 @@
 from typing import Dict, Any, Optional
 
 from django.db import transaction, IntegrityError
-from django.db.models import Q
+from django.db.models import Q, Max
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -549,9 +549,13 @@ class ClaimHouseView(APIView):
                         # Create new house
                         logger.info(f"Creating new house (attempt {attempt + 1})")
 
-                        # Get next available ID and ensure it's safe
-                        house_id = House.get_next_available_id()
-                        logger.info(f"GapFillingIDMixin suggested ID: {house_id}")
+                        # Use max ID + 1 to avoid all conflicts
+                        # This is safer than GapFillingIDMixin for models with OneToOne relationships
+                        from django.db.models import Max
+
+                        max_id = House.objects.aggregate(Max("id"))["id__max"] or 0
+                        house_id = max_id + 1
+                        logger.info(f"Using ID: {house_id} (max_id + 1)")
 
                         house = House(
                             id=house_id,

@@ -28,9 +28,7 @@ class GapFillingIDMixin(models.Model):
         logger = logging.getLogger(__name__)
 
         existing_ids = set(cls.objects.values_list("id", flat=True))
-        logger.info(
-            f"{cls.__name__}: Existing IDs count: {len(existing_ids)}"
-        )
+        logger.info(f"{cls.__name__}: Existing IDs count: {len(existing_ids)}")
 
         # Additional safety check for House model with QRCode relationship
         # to avoid OneToOne constraint violations
@@ -41,29 +39,28 @@ class GapFillingIDMixin(models.Model):
             # Get ALL house_ids currently referenced in QRCode table
             # This is critical because these IDs CANNOT be reused
             reserved_by_qrcodes = set(
-                QRCode.objects.filter(house_id__isnull=False)
-                .values_list('house_id', flat=True)
+                QRCode.objects.filter(house_id__isnull=False).values_list(
+                    "house_id", flat=True
+                )
             )
-            
-            logger.info(
-                f"House: QRCode reserved IDs count: {len(reserved_by_qrcodes)}"
-            )
-            
+
+            logger.info(f"House: QRCode reserved IDs count: {len(reserved_by_qrcodes)}")
+
             # Combine both sets - we can't use IDs from either set
             all_used_ids = existing_ids | reserved_by_qrcodes
-            
+
             logger.info(
                 f"House: Total used IDs (houses + qrcodes): {len(all_used_ids)}"
             )
-            
+
             # Find first available ID that's NOT in either set
             expected_id = 1
             while expected_id in all_used_ids:
                 expected_id += 1
-            
+
             logger.info(f"House: Found available ID: {expected_id}")
             return expected_id
-        
+
         # For other models, just find gap in existing IDs
         expected_id = 1
         while expected_id in existing_ids:

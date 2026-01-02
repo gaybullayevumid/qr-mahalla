@@ -556,20 +556,22 @@ class ClaimHouseView(APIView):
                     # Create new house with GUARANTEED UNIQUE ID
                     # Use random large number to avoid ALL conflicts
                     import random
-                    
+
                     logger.info("Generating guaranteed unique House ID")
 
                     # Strategy: Use random 10-digit number (1,000,000,000 to 9,999,999,999)
                     # This gives us billions of possible IDs, making collisions nearly impossible
                     max_attempts = 100
                     house_created = False
-                    
+
                     for attempt in range(max_attempts):
                         # Generate random ID in range 1,000,000,000 - 9,999,999,999
                         random_id = random.randint(1_000_000_000, 9_999_999_999)
-                        
-                        logger.info(f"Attempt {attempt + 1}: trying House ID {random_id}")
-                        
+
+                        logger.info(
+                            f"Attempt {attempt + 1}: trying House ID {random_id}"
+                        )
+
                         try:
                             # Create house with random ID
                             house = House(
@@ -580,26 +582,35 @@ class ClaimHouseView(APIView):
                                 owner=user,
                             )
                             house.save(force_insert=True)
-                            logger.info(f"Successfully created house with ID {house.id}")
-                            
+                            logger.info(
+                                f"Successfully created house with ID {house.id}"
+                            )
+
                             # Link QR to house
                             qr.house = house
                             qr.save(update_fields=["house"])
-                            logger.info(f"Successfully linked QR {qr.uuid} to house {house.id}")
-                            
+                            logger.info(
+                                f"Successfully linked QR {qr.uuid} to house {house.id}"
+                            )
+
                             house_created = True
                             break
-                            
+
                         except IntegrityError as ie:
                             error_msg = str(ie)
-                            if "unique constraint" in error_msg.lower() or "duplicate" in error_msg.lower():
+                            if (
+                                "unique constraint" in error_msg.lower()
+                                or "duplicate" in error_msg.lower()
+                            ):
                                 # This ID is taken, try another
-                                logger.warning(f"House ID {random_id} already taken, retrying...")
+                                logger.warning(
+                                    f"House ID {random_id} already taken, retrying..."
+                                )
                                 continue
                             else:
                                 # Different error, re-raise
                                 raise
-                    
+
                     if not house_created:
                         # Failed to create house after max_attempts
                         raise IntegrityError(

@@ -557,27 +557,26 @@ class ClaimHouseView(APIView):
                     # CRITICAL: Must calculate safe ID while QRCode is locked
                     # to avoid race conditions with other concurrent requests
                     logger.info("Calculating safe House ID inside transaction")
-                    
+
                     # Get existing House IDs
-                    existing_house_ids = set(
-                        House.objects.values_list('id', flat=True)
-                    )
-                    
+                    existing_house_ids = set(House.objects.values_list("id", flat=True))
+
                     # Get house_ids reserved by QRCodes (CRITICAL!)
                     # These IDs cannot be reused even if House was deleted
                     reserved_by_qrcodes = set(
-                        QRCode.objects.filter(house_id__isnull=False)
-                        .values_list('house_id', flat=True)
+                        QRCode.objects.filter(house_id__isnull=False).values_list(
+                            "house_id", flat=True
+                        )
                     )
-                    
+
                     # Combine both sets
                     all_used_ids = existing_house_ids | reserved_by_qrcodes
-                    
+
                     # Find first available ID
                     safe_house_id = 1
                     while safe_house_id in all_used_ids:
                         safe_house_id += 1
-                    
+
                     logger.info(
                         f"Safe House ID: {safe_house_id} "
                         f"(existing houses: {len(existing_house_ids)}, "

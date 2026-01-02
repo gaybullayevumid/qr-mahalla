@@ -287,10 +287,12 @@ class QRCodeScanAPIView(APIView):
 
 class ScanQRCodeView(APIView):
     """
-    GET endpoint for QR code scanning by UUID.
+    GET/POST endpoint for QR code scanning by UUID.
 
     Main endpoint for all users to scan QR codes.
-    Similar to QRCodeScanAPIView but uses GET method.
+    
+    GET: Scan QR code and get status
+    POST: Scan QR code with user data (saves user info)
     """
 
     permission_classes = [AllowAny]
@@ -307,6 +309,52 @@ class ScanQRCodeView(APIView):
                 {"error": "QR code not found"}, status=status.HTTP_404_NOT_FOUND
             )
 
+        _log_qr_scan(request, qr)
+
+        user_role, is_owner = _get_user_role_and_ownership(request, qr)
+
+        if not qr.house or not qr.house.owner:
+            return Response(_get_unclaimed_response(qr, user_role))
+
+        return Response(_get_claimed_response(qr, user_role, is_owner))
+    
+    def post(self, request: Request, uuid: str) -> Response:
+        """
+        Handle QR code scan via POST request with user data.
+        
+        Accepts user info in request body and saves it:
+        {
+            "first_name": "John",
+            "last_name": "Doe"
+        }
+        """
+        try:
+            qr = QRCode.objects.select_related(
+                "house__owner",
+                "house__mahalla__district__region",
+            ).get(uuid=uuid)
+        except QRCode.DoesNotExist:
+            return Response(
+                {"error": "QR code not found"}, status=status.HTTP_404_NOT_FOUND
+            )
+
+        # Save user data if authenticated
+        if request.user and request.user.is_authenticated:
+            # Update user info from request body
+            first_name = request.data.get("first_name")
+            last_name = request.data.get("last_name")
+            
+            if first_name or last_name:
+                if first_name:
+                    request.user.first_name = first_name
+                if last_name:
+                    request.user.last_name = last_name
+                
+                # Save scanned QR UUID
+                request.user.scanned_qr_code = qr.uuid
+                request.user.save(update_fields=["first_name", "last_name", "scanned_qr_code"])
+        
+        # Log the scan
         _log_qr_scan(request, qr)
 
         user_role, is_owner = _get_user_role_and_ownership(request, qr)

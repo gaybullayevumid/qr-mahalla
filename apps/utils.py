@@ -23,7 +23,14 @@ class GapFillingIDMixin(models.Model):
         Returns:
             int: First available ID in the sequence
         """
+        import logging
+
+        logger = logging.getLogger(__name__)
+
         existing_ids = set(cls.objects.values_list("id", flat=True))
+        logger.info(
+            f"{cls.__name__}: Existing IDs: {sorted(existing_ids) if len(existing_ids) < 20 else f'{len(existing_ids)} IDs'}"
+        )
 
         expected_id = 1
         while expected_id in existing_ids:
@@ -38,6 +45,7 @@ class GapFillingIDMixin(models.Model):
             # Check if there's a QRCode pointing to a House with this ID
             # (even if the House was deleted, the QRCode might still exist)
             qr_exists = QRCode.objects.filter(house_id=expected_id).exists()
+            logger.info(f"House: Checking ID {expected_id}, QR exists: {qr_exists}")
 
             attempts = 0
             max_attempts = 100
@@ -48,12 +56,19 @@ class GapFillingIDMixin(models.Model):
                     expected_id += 1
                 qr_exists = QRCode.objects.filter(house_id=expected_id).exists()
                 attempts += 1
+                logger.info(
+                    f"House: Attempt {attempts}, trying ID {expected_id}, QR exists: {qr_exists}"
+                )
 
             if attempts >= max_attempts:
                 # Fallback: use max ID + 1
                 max_id = max(existing_ids) if existing_ids else 0
                 expected_id = max_id + 1
+                logger.warning(
+                    f"House: Max attempts reached, using fallback ID {expected_id}"
+                )
 
+        logger.info(f"{cls.__name__}: Selected ID: {expected_id}")
         return expected_id
 
     def save(self, *args, **kwargs):

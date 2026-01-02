@@ -410,6 +410,9 @@ class ClaimHouseView(APIView):
     """
     Claim house ownership after scanning QR code.
 
+    GET: Get claim status and debug info for a QR code
+    POST: Claim house ownership
+
     Only authenticated users can claim houses.
     Uses atomic transactions to prevent race conditions.
     """
@@ -417,7 +420,11 @@ class ClaimHouseView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request: Request, uuid: str) -> Response:
-        """Get claim status and debug info for a QR code."""
+        """
+        Get claim status and debug info for a QR code.
+
+        Returns QR code details, house info, and whether it can be claimed.
+        """
         try:
             qr = QRCode.objects.select_related(
                 "house", "house__owner", "house__mahalla"
@@ -427,6 +434,7 @@ class ClaimHouseView(APIView):
                 "qr_uuid": qr.uuid,
                 "qr_id": qr.id,
                 "has_house": qr.house is not None,
+                "can_claim": not (qr.house and qr.house.owner),
             }
 
             if qr.house:
@@ -445,6 +453,13 @@ class ClaimHouseView(APIView):
                         "first_name": qr.house.owner.first_name,
                         "last_name": qr.house.owner.last_name,
                     }
+                    response_data["message"] = "Bu uy allaqachon claim qilingan."
+                else:
+                    response_data["message"] = "Bu uyni claim qilishingiz mumkin."
+            else:
+                response_data["message"] = (
+                    "Bu QR kod uchun uy ma'lumotlari kiritilmagan."
+                )
 
             return Response(response_data)
         except QRCode.DoesNotExist:
@@ -535,27 +550,24 @@ class ClaimHouseView(APIView):
                     # Create new house for this QR code
                     logger.info(f"Creating new house for QR {uuid}")
 
-                    # Safe approach: find a house ID that doesn't have a QR code
+                    # Safe approach with retry logic
                     max_retries = 20
                     house = None
+                    last_error = None
 
                     for attempt in range(max_retries):
                         try:
-                            # Let GapFillingIDMixin find the next ID
-                            next_id = House.get_next_available_id()
                             logger.info(
-                                f"Attempt {attempt + 1}: Trying to create house with ID {next_id}"
+                                f"Attempt {attempt + 1}: Creating house for QR {uuid}"
                             )
 
-                            # Create house with specific ID
-                            house = House(
-                                id=next_id,
+                            # Create house (GapFillingIDMixin will assign ID)
+                            house = House.objects.create(
                                 address=validated_data["address"],
                                 house_number=validated_data["house_number"],
                                 mahalla=mahalla,
                                 owner=user,
                             )
-                            house.save()
                             logger.info(f"Successfully created house {house.id}")
 
                             # Link the QR code to the house
@@ -567,31 +579,30 @@ class ClaimHouseView(APIView):
                             break  # Success!
 
                         except IntegrityError as ie:
-                            logger.warning(f"Attempt {attempt + 1} failed: {str(ie)}")
+                            last_error = ie
+                            error_msg = str(ie)
+                            logger.warning(f"Attempt {attempt + 1} failed: {error_msg}")
 
-                            # If house was created, delete it to free the ID
-                            if house and house.id:
-                                try:
-                                    House.objects.filter(id=house.id).delete()
-                                except:
-                                    pass
-
-                            house = None
-
-                            # If this is a house_id constraint error and we have retries left, continue
+                            # If this is a house_id constraint error, it means the ID
+                            # assigned by GapFillingIDMixin already has a QRCode
+                            # We need to "consume" this ID and try the next one
                             if (
-                                "house_id" in str(ie).lower()
-                                and attempt < max_retries - 1
+                                "house_id" in error_msg.lower()
+                                or "qrcodes_qrcode.house_id" in error_msg
                             ):
-                                continue
+                                if attempt < max_retries - 1:
+                                    # The house was created but we can't link QR to it
+                                    # Leave it and move to next ID (GapFillingIDMixin will skip it)
+                                    house = None
+                                    continue
 
-                            # Otherwise, re-raise the error
+                            # For other errors or if we're out of retries, re-raise
                             raise
 
                     if house is None:
-                        raise IntegrityError(
-                            f"Failed to create house after {max_retries} attempts"
-                        )
+                        error_detail = f"Failed to create and link house after {max_retries} attempts. Last error: {str(last_error)}"
+                        logger.error(error_detail)
+                        raise IntegrityError(error_detail)
 
                 ScanLog.objects.create(
                     qr=qr, scanned_by=user, ip_address=get_client_ip(request)

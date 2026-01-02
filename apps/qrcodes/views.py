@@ -494,11 +494,11 @@ class ClaimHouseView(APIView):
             )
 
         logger.info("Claim start: Using random House IDs with retry logic")
-        
+
         # CRITICAL: Cleanup orphaned house_ids BEFORE any transaction attempts
         # This prevents UNIQUE constraint errors from orphaned references
         logger.info("Pre-claim cleanup: checking for orphaned house_ids globally")
-        
+
         try:
             existing_house_ids = set(House.objects.values_list("id", flat=True))
             used_house_ids_in_qr = set(
@@ -507,12 +507,14 @@ class ClaimHouseView(APIView):
                 )
             )
             orphaned_ids = used_house_ids_in_qr - existing_house_ids
-            
+
             if orphaned_ids:
                 logger.warning(
                     f"Found {len(orphaned_ids)} orphaned house_ids: {sorted(list(orphaned_ids))[:20]}..."
                 )
-                cleaned = QRCode.objects.filter(house_id__in=orphaned_ids).update(house_id=None)
+                cleaned = QRCode.objects.filter(house_id__in=orphaned_ids).update(
+                    house_id=None
+                )
                 logger.info(f"Successfully cleaned up {cleaned} orphaned house_ids")
             else:
                 logger.info("No orphaned house_ids found. Database is clean.")
@@ -590,7 +592,7 @@ class ClaimHouseView(APIView):
                         # Create new house with random 10-digit ID
                         # Orphaned house_ids already cleaned up before transaction
                         logger.info("Generating random House ID")
-                        
+
                         random_id = random.randint(1_000_000_000, 9_999_999_999)
                         logger.info(f"Selected House ID: {random_id}")
 

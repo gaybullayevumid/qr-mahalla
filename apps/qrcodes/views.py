@@ -497,6 +497,21 @@ class ClaimHouseView(APIView):
         max_retries = 20
         last_error = None
 
+        # Get initial max house ID OUTSIDE transaction to track retries
+        from django.db.models import Max
+        from apps.qrcodes.models import QRCode as QRCodeModel
+
+        max_house_id = House.objects.aggregate(Max("id"))["id__max"] or 0
+        max_qr_house_id = (
+            QRCodeModel.objects.filter(house_id__isnull=False).aggregate(
+                Max("house_id")
+            )["house_id__max"]
+            or 0
+        )
+
+        # Start with max + 1, increment on each retry
+        next_house_id = max(max_house_id, max_qr_house_id) + 1
+
         for attempt in range(max_retries):
             try:
                 with transaction.atomic():
@@ -548,38 +563,13 @@ class ClaimHouseView(APIView):
                         house = qr.house
                     else:
                         # Create new house with safe ID
-                        logger.info(f"Creating new house (attempt {attempt + 1})")
-
-                        # Strategy: Use max(house_id) + 1 from BOTH tables
-                        # Lock QRCode table to prevent concurrent ID conflicts
-                        from django.db.models import Max
-                        from apps.qrcodes.models import QRCode as QRCodeModel
-
-                        # Lock all QRCode rows to ensure atomic ID generation
-                        # This prevents race conditions where two requests get same max+1
-                        QRCodeModel.objects.select_for_update().exists()
-
-                        max_house_id = (
-                            House.objects.aggregate(Max("id"))["id__max"] or 0
-                        )
-                        max_qr_house_id = (
-                            QRCodeModel.objects.filter(
-                                house_id__isnull=False
-                            ).aggregate(Max("house_id"))["house_id__max"]
-                            or 0
-                        )
-
-                        # Use the maximum from both tables + 1
-                        new_house_id = max(max_house_id, max_qr_house_id) + 1
-
                         logger.info(
-                            f"Using house ID: {new_house_id} "
-                            f"(max_house={max_house_id}, max_qr_house={max_qr_house_id})"
+                            f"Creating new house (attempt {attempt + 1}) with ID {next_house_id}"
                         )
 
-                        # Create house with explicit ID
+                        # Create house with explicit ID (increments each retry)
                         house = House(
-                            id=new_house_id,
+                            id=next_house_id,
                             address=validated_data["address"],
                             house_number=validated_data["house_number"],
                             mahalla=mahalla,
@@ -630,7 +620,12 @@ class ClaimHouseView(APIView):
             except IntegrityError as ie:
                 last_error = ie
                 error_msg = str(ie)
-                logger.warning(f"Attempt {attempt + 1} failed: {error_msg}")
+            except IntegrityError as ie:
+                last_error = ie
+                error_msg = str(ie)
+                logger.warning(
+                    f"Attempt {attempt + 1} failed with ID {next_house_id}: {error_msg}"
+                )
 
                 # If house_id constraint error, retry with next ID
                 if (
@@ -638,7 +633,9 @@ class ClaimHouseView(APIView):
                     or "qrcodes_qrcode.house_id" in error_msg
                 ):
                     if attempt < max_retries - 1:
-                        logger.info(f"Retrying with next available ID...")
+                        # Increment ID for next retry
+                        next_house_id += 1
+                        logger.info(f"Retrying with next ID: {next_house_id}")
                         continue
 
                 # For other errors, stop retrying

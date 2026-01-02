@@ -546,35 +546,27 @@ class ClaimHouseView(APIView):
                         qr.house.save()
                         house = qr.house
                     else:
-                        # Create new house
+                        # Create new house - let Django/GapFillingIDMixin handle ID
                         logger.info(f"Creating new house (attempt {attempt + 1})")
 
-                        # Use max ID + 1 to avoid all conflicts
-                        # Lock House table to prevent race conditions
-                        from django.db.models import Max
-
-                        # Get max_id with select_for_update lock on House table
-                        # This prevents concurrent requests from getting the same max_id
-                        max_id_obj = (
-                            House.objects.select_for_update().order_by("-id").first()
-                        )
-                        house_id = (max_id_obj.id if max_id_obj else 0) + 1
-                        logger.info(f"Using ID: {house_id} (max_id + 1, locked)")
-
+                        # Don't specify ID - let save() method handle it
+                        # GapFillingIDMixin will find next available ID safely
                         house = House(
-                            id=house_id,
                             address=validated_data["address"],
                             house_number=validated_data["house_number"],
                             mahalla=mahalla,
                             owner=user,
                         )
                         house.save()
-                        logger.info(f"Created house {house.id}")
+                        logger.info(f"Created house with ID {house.id}")
 
-                        # Link QR to house
+                        # Try to link QR to house
+                        # This might fail if the ID is already linked to another QR
                         qr.house = house
                         qr.save(update_fields=["house"])
-                        logger.info(f"Linked QR {qr.uuid} to house {house.id}")
+                        logger.info(
+                            f"Successfully linked QR {qr.uuid} to house {house.id}"
+                        )
 
                     # Log the scan
                     ScanLog.objects.create(

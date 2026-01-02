@@ -49,7 +49,23 @@ class GapFillingIDMixin(models.Model):
 
             while attempts < max_attempts:
                 # Check if there's a QRCode pointing to this ID
-                qr_exists = QRCode.objects.filter(house_id=expected_id).exists()
+                # Use select_for_update() to lock the row if we're in a transaction
+                try:
+                    from django.db import transaction
+
+                    if transaction.get_connection().in_atomic_block:
+                        # We're in a transaction, use select_for_update()
+                        qr_exists = (
+                            QRCode.objects.filter(house_id=expected_id)
+                            .select_for_update(nowait=True)
+                            .exists()
+                        )
+                    else:
+                        # Not in transaction, regular check
+                        qr_exists = QRCode.objects.filter(house_id=expected_id).exists()
+                except Exception:
+                    # If select_for_update fails (row locked), this ID is in use
+                    qr_exists = True
 
                 if not qr_exists:
                     # This ID is safe to use

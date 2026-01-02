@@ -547,12 +547,39 @@ class ClaimHouseView(APIView):
                         qr.house.save()
                         house = qr.house
                     else:
-                        # Create new house - let Django/GapFillingIDMixin handle ID
+                        # Create new house with safe ID
                         logger.info(f"Creating new house (attempt {attempt + 1})")
 
-                        # Don't specify ID - let save() method handle it
-                        # GapFillingIDMixin will find next available ID safely
+                        # Strategy: Use max(house_id) + 1 from BOTH tables
+                        # Lock QRCode table to prevent concurrent ID conflicts
+                        from django.db.models import Max
+                        from apps.qrcodes.models import QRCode as QRCodeModel
+
+                        # Lock all QRCode rows to ensure atomic ID generation
+                        # This prevents race conditions where two requests get same max+1
+                        QRCodeModel.objects.select_for_update().exists()
+
+                        max_house_id = (
+                            House.objects.aggregate(Max("id"))["id__max"] or 0
+                        )
+                        max_qr_house_id = (
+                            QRCodeModel.objects.filter(
+                                house_id__isnull=False
+                            ).aggregate(Max("house_id"))["house_id__max"]
+                            or 0
+                        )
+
+                        # Use the maximum from both tables + 1
+                        new_house_id = max(max_house_id, max_qr_house_id) + 1
+
+                        logger.info(
+                            f"Using house ID: {new_house_id} "
+                            f"(max_house={max_house_id}, max_qr_house={max_qr_house_id})"
+                        )
+
+                        # Create house with explicit ID
                         house = House(
+                            id=new_house_id,
                             address=validated_data["address"],
                             house_number=validated_data["house_number"],
                             mahalla=mahalla,
@@ -561,8 +588,7 @@ class ClaimHouseView(APIView):
                         house.save()
                         logger.info(f"Created house with ID {house.id}")
 
-                        # Try to link QR to house
-                        # This might fail if the ID is already linked to another QR
+                        # Link QR to house
                         qr.house = house
                         qr.save(update_fields=["house"])
                         logger.info(

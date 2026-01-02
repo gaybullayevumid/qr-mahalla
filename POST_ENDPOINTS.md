@@ -26,7 +26,18 @@
     "username": "john_doe",
     "first_name": "John",
     "last_name": "Doe",
-    "role": "resident"
+    "role": "resident",
+    "houses": [
+      {
+        "id": 1234567890,
+        "address": "Yunusobod tumani, Bodomzor MFY, 12-uy",
+        "house_number": "12",
+        "mahalla": "Bodomzor",
+        "district": "Yunusobod",
+        "region": "Toshkent shahar",
+        "scanned_qr_code": "abc123def456"
+      }
+    ]
   }
 }
 ```
@@ -282,6 +293,95 @@ console.log('My houses:', housesResponse.data);
 - `client` - faqat o'z uylarini ko'radi
 - `leader` - o'z mahallasidagi barcha uylarni ko'radi  
 - `admin` - barcha uylarni ko'radi
+
+---
+
+## 5. 👥 GET USER LIST - Foydalanuvchilar ro'yxati (houses bilan)
+
+**Endpoint:** `GET /api/users/list/`
+
+**Qachon ishlatiladi:** Adminlar/Leaderlar foydalanuvchilarni va ularning uylarini ko'rish uchun
+
+**Headers:**
+```
+Authorization: Token eyJ0eXAiOiJKV1QiLCJhbGc...
+```
+
+**Response (200 OK):**
+```json
+[
+  {
+    "id": 4,
+    "phone": "+998906252919",
+    "first_name": "Muxriddin",
+    "last_name": "Rustamov",
+    "role": "client",
+    "is_verified": false,
+    "houses": [
+      {
+        "id": 1,
+        "address": "Test address",
+        "house_number": "123",
+        "mahalla": "Qatortol",
+        "district": "Chilonzor",
+        "region": "Toshkent",
+        "scanned_qr_code": "10bfb53c26d34ad2"
+      }
+    ]
+  }
+]
+```
+
+**JavaScript misoli:**
+```javascript
+const usersResponse = await axios.get('/api/users/list/', {
+  headers: {
+    'Authorization': `Token ${token}`
+  }
+});
+
+console.log('Users with houses:', usersResponse.data);
+```
+
+**Role-based Access:**
+- `client` - faqat o'zini ko'radi (houses bilan)
+- `leader` - o'z mahallasidagi userlarni ko'radi (houses bilan)
+- `admin` - barcha userlarni ko'radi (houses bilan)
+
+---
+
+## 6. 👤 GET USER PROFILE - Profil ma'lumotlari
+
+**Endpoint:** `GET /api/users/profile/`
+
+**Headers:**
+```
+Authorization: Token eyJ0eXAiOiJKV1QiLCJhbGc...
+```
+
+**Response (200 OK):**
+```json
+{
+  "id": 4,
+  "phone": "+998906252919",
+  "role": "client",
+  "first_name": "Muxriddin",
+  "last_name": "Rustamov",
+  "is_verified": false,
+  "scanned_qr_code": "abc123def456",
+  "houses": [
+    {
+      "id": 1,
+      "address": "Test address",
+      "house_number": "123",
+      "mahalla": "Qatortol",
+      "district": "Chilonzor",
+      "region": "Toshkent",
+      "scanned_qr_code": "10bfb53c26d34ad2"
+    }
+  ]
+}
+```
 
 ---
 

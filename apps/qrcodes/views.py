@@ -493,257 +493,155 @@ class ClaimHouseView(APIView):
                 {"error": "Mahalla not found"}, status=status.HTTP_404_NOT_FOUND
             )
 
-        # Retry logic for handling GapFillingIDMixin conflicts
-        max_retries = 50  # Increased from 20 to handle more conflicts
-        last_error = None
+        logger.info("Claim start: Using Django auto-generated House IDs")
 
-        from django.db.models import Max
-        from apps.qrcodes.models import QRCode as QRCodeModel
-        import time
-        import random
+        try:
+            with transaction.atomic():
+                logger.info("Starting claim transaction")
 
-        logger.info("Claim start: Finding safe House ID from database")
-
-        for attempt in range(max_retries):
-            # Generate UNIQUE ID for each retry
-            # Strategy: Query database for currently used house_ids in QRCode table
-            # Then generate a safe ID that's guaranteed not to conflict
-
-            # Get all house_ids currently referenced by QRCodes
-            used_house_ids = set(
-                QRCodeModel.objects.filter(house_id__isnull=False).values_list(
-                    "house_id", flat=True
+                # Lock the QR code row to prevent race conditions
+                qr = (
+                    QRCode.objects.select_for_update()
+                    .select_related("house", "house__owner")
+                    .get(uuid=uuid)
                 )
-            )
 
-            # Generate timestamp-based ID with larger random range
-            timestamp_ms = int(time.time() * 1000)  # Milliseconds since epoch
-            random_suffix = random.randint(1000, 999999)  # 6 digits for more uniqueness
-            next_house_id = (
-                timestamp_ms * 1000 + random_suffix
-            )  # Very large unique number
-
-            # Keep incrementing until we find an unused ID
-            max_id_search = 100
-            for search_attempt in range(max_id_search):
-                if next_house_id not in used_house_ids:
-                    break
-                next_house_id += 1
-            else:
-                # If we couldn't find unused ID, try fresh timestamp
-                logger.warning(
-                    f"Couldn't find unused ID after {max_id_search} attempts, retrying..."
+                logger.info(
+                    f"QR {uuid} - has_house={qr.house is not None}, "
+                    f"has_owner={qr.house.owner if qr.house else None}"
                 )
-                continue
 
-            logger.info(
-                f"Attempt {attempt + 1}/{max_retries}: Generated house ID {next_house_id}, "
-                f"used_ids count: {len(used_house_ids)}"
-            )
-
-            try:
-                with transaction.atomic():
-                    logger.info(
-                        f"Attempt {attempt + 1}/{max_retries}: Trying house ID {next_house_id}"
-                    )
-
-                    # Lock the QR code row to prevent race conditions
-                    qr = (
-                        QRCode.objects.select_for_update()
-                        .select_related("house", "house__owner")
-                        .get(uuid=uuid)
-                    )
-
-                    logger.info(
-                        f"Attempt {attempt + 1}: QR {uuid} - has_house={qr.house is not None}, has_owner={qr.house.owner if qr.house else None}"
-                    )
-
-                    # Check if already claimed
-                    if qr.house and qr.house.owner:
-                        if qr.house.owner == user:
-                            return Response(
-                                {
-                                    "error": "Siz allaqachon bu uyni claim qilgansiz.",
-                                    "error_en": "You have already claimed this house.",
-                                    "house_id": qr.house.id,
-                                    "is_reclaim_attempt": True,
-                                },
-                                status=status.HTTP_400_BAD_REQUEST,
-                            )
+                # Check if already claimed
+                if qr.house and qr.house.owner:
+                    if qr.house.owner == user:
                         return Response(
                             {
-                                "error": "Bu uy allaqachon boshqa foydalanuvchi tomonidan claim qilingan.",
-                                "error_en": "This house is already claimed by another user.",
-                                "owner": qr.house.owner.phone,
+                                "error": "Siz allaqachon bu uyni claim qilgansiz.",
+                                "error_en": "You have already claimed this house.",
+                                "house_id": qr.house.id,
+                                "is_reclaim_attempt": True,
                             },
                             status=status.HTTP_400_BAD_REQUEST,
                         )
-
-                    # Update user info with QR code reference
-                    user.first_name = validated_data["first_name"]
-                    user.last_name = validated_data["last_name"]
-                    user.scanned_qr_code = qr.uuid  # Save scanned QR UUID
-                    user.save(
-                        update_fields=["first_name", "last_name", "scanned_qr_code"]
-                    )
-
-                    logger.info(
-                        f"Updated user {user.phone}: {user.first_name} {user.last_name}, "
-                        f"scanned QR: {user.scanned_qr_code}"
-                    )
-
-                    if qr.house:
-                        # Update existing house
-                        logger.info(f"Updating existing house {qr.house.id}")
-                        qr.house.address = validated_data["address"]
-                        qr.house.house_number = validated_data["house_number"]
-                        qr.house.mahalla = mahalla
-                        qr.house.owner = user
-                        qr.house.save()
-                        house = qr.house
-                    else:
-                        # Create new house with safe ID
-                        # For first attempt, use max+1
-                        # For retries, add attempt number to avoid conflicts
-                        logger.info(
-                            f"Creating new house (attempt {attempt + 1}) with ID {next_house_id}"
-                        )
-
-                        # Final safety check: verify this ID isn't already in database
-                        # (should be guaranteed by our pre-query, but double-check)
-                        if next_house_id in used_house_ids:
-                            logger.error(
-                                f"CRITICAL: ID {next_house_id} is in used_house_ids set! "
-                                f"This should not happen. Retrying..."
-                            )
-                            raise IntegrityError(
-                                f"house_id {next_house_id} found in used_house_ids"
-                            )
-
-                        # Extra paranoid check: query database again within transaction
-                        existing_qr_with_id = (
-                            QRCodeModel.objects.filter(house_id=next_house_id)
-                            .exclude(id=qr.id)
-                            .first()
-                        )
-
-                        if existing_qr_with_id:
-                            logger.error(
-                                f"CRITICAL: ID {next_house_id} already used by QR {existing_qr_with_id.uuid}! "
-                                f"This should not happen. Retrying..."
-                            )
-                            raise IntegrityError(
-                                f"house_id {next_house_id} already linked to QR {existing_qr_with_id.uuid}"
-                            )
-
-                        # IMPORTANT: Explicitly set ID to override GapFillingIDMixin
-                        # which might choose an ID that's already linked to a QRCode
-                        house = House(
-                            id=next_house_id,
-                            address=validated_data["address"],
-                            house_number=validated_data["house_number"],
-                            mahalla=mahalla,
-                            owner=user,
-                        )
-
-                        # Save with force_insert to ensure ID is respected
-                        house.save(force_insert=True)
-                        logger.info(f"Created house with ID {house.id}")
-
-                        # Link QR to house
-                        qr.house = house
-                        qr.save(update_fields=["house"])
-                        logger.info(
-                            f"Successfully linked QR {qr.uuid} to house {house.id}"
-                        )
-
-                    # Log the scan
-                    ScanLog.objects.create(
-                        qr=qr, scanned_by=user, ip_address=get_client_ip(request)
-                    )
-
-                    # Success! Return response
                     return Response(
                         {
-                            "message": "House claimed successfully",
-                            "house": {
-                                "id": house.id,
-                                "address": house.address,
-                                "number": house.house_number,
-                                "mahalla": house.mahalla.name,
-                                "district": house.mahalla.district.name,
-                                "region": house.mahalla.district.region.name,
-                            },
-                            "owner": {
-                                "phone": user.phone,
-                                "first_name": user.first_name,
-                                "last_name": user.last_name,
-                                "role": user.role,
-                            },
-                            "qr": {
-                                "id": qr.id,
-                                "uuid": qr.uuid,
-                                "qr_url": qr.get_qr_url(),
-                                "is_claimed": True,
-                            },
-                        }
-                    )
-
-            except IntegrityError as ie:
-                last_error = ie
-                error_msg = str(ie)
-                logger.warning(
-                    f"Attempt {attempt + 1} failed with ID {next_house_id}: {error_msg}"
-                )
-
-                # If house_id constraint error, retry with next ID
-                if (
-                    "house_id" in error_msg.lower()
-                    or "qrcodes_qrcode.house_id" in error_msg
-                ):
-                    if attempt < max_retries - 1:
-                        logger.info(f"Will retry with ID {next_house_id + 1}")
-                        continue
-
-                # For other errors, stop retrying
-                break
-
-        # If we exhausted all retries, return error
-        if last_error:
-            logger.error(f"Failed to claim house after {max_retries} attempts")
-            error_msg = str(last_error).lower()
-            error_detail = str(last_error)
-
-            if "unique constraint" in error_msg or "duplicate" in error_msg:
-                if (
-                    "house" in error_msg
-                    or "qr_code" in error_msg
-                    or "one-to-one" in error_msg
-                ):
-                    return Response(
-                        {
-                            "error": f"Bu uy allaqachon boshqa QR kod bilan bog'langan. ({error_detail})",
-                            "error_en": f"This house is already linked to another QR code. ({error_detail})",
-                            "detail": error_detail,
-                            "error_type": "house_already_linked",
+                            "error": "Bu uy allaqachon boshqa foydalanuvchi tomonidan claim qilingan.",
+                            "error_en": "This house is already claimed by another user.",
+                            "owner": qr.house.owner.phone,
                         },
                         status=status.HTTP_400_BAD_REQUEST,
                     )
+
+                # Update user info with QR code reference
+                user.first_name = validated_data["first_name"]
+                user.last_name = validated_data["last_name"]
+                user.scanned_qr_code = qr.uuid  # Save scanned QR UUID
+                user.save(
+                    update_fields=["first_name", "last_name", "scanned_qr_code"]
+                )
+
+                logger.info(
+                    f"Updated user {user.phone}: {user.first_name} {user.last_name}, "
+                    f"scanned QR: {user.scanned_qr_code}"
+                )
+
+                if qr.house:
+                    # Update existing house
+                    logger.info(f"Updating existing house {qr.house.id}")
+                    qr.house.address = validated_data["address"]
+                    qr.house.house_number = validated_data["house_number"]
+                    qr.house.mahalla = mahalla
+                    qr.house.owner = user
+                    qr.house.save()
+                    house = qr.house
+                else:
+                    # Create new house with AUTO-GENERATED ID
+                    # Let Django/GapFillingIDMixin handle ID assignment
+                    logger.info("Creating new house with auto-generated ID")
+
+                    house = House(
+                        address=validated_data["address"],
+                        house_number=validated_data["house_number"],
+                        mahalla=mahalla,
+                        owner=user,
+                    )
+                    house.save()  # Let Django auto-generate ID
+                    logger.info(f"Created house with auto-generated ID {house.id}")
+
+                    # Link QR to house
+                    qr.house = house
+                    qr.save(update_fields=["house"])
+                    logger.info(
+                        f"Successfully linked QR {qr.uuid} to house {house.id}"
+                    )
+
+                # Log the scan
+                ScanLog.objects.create(
+                    qr=qr, scanned_by=user, ip_address=get_client_ip(request)
+                )
+
+                # Success! Return response
+                return Response(
+                    {
+                        "message": "House claimed successfully",
+                        "house": {
+                            "id": house.id,
+                            "address": house.address,
+                            "number": house.house_number,
+                            "mahalla": house.mahalla.name,
+                            "district": house.mahalla.district.name,
+                            "region": house.mahalla.district.region.name,
+                        },
+                        "owner": {
+                            "phone": user.phone,
+                            "first_name": user.first_name,
+                            "last_name": user.last_name,
+                            "role": user.role,
+                        },
+                        "qr": {
+                            "id": qr.id,
+                            "uuid": qr.uuid,
+                            "qr_url": qr.get_qr_url(),
+                            "is_claimed": True,
+                        },
+                    }
+                )
+
+        except QRCode.DoesNotExist:
+            return Response(
+                {"error": "QR code not found"},
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except IntegrityError as ie:
+            error_msg = str(ie)
+            logger.error(f"IntegrityError during claim: {error_msg}")
+
+            if "unique constraint" in error_msg.lower() or "duplicate" in error_msg.lower():
+                return Response(
+                    {
+                        "error": "Bu uy allaqachon boshqa QR kod bilan bog'langan.",
+                        "error_en": "This house is already linked to another QR code.",
+                        "detail": error_msg,
+                        "error_type": "house_already_linked",
+                    },
+                    status=status.HTTP_400_BAD_REQUEST,
+                )
             return Response(
                 {
-                    "error": f"Ma'lumotlar bazasida xatolik yuz berdi: {error_detail}",
-                    "error_en": f"Database integrity error: {error_detail}",
-                    "detail": error_detail,
+                    "error": "Ma'lumotlar bazasida xatolik yuz berdi.",
+                    "error_en": "Database integrity error occurred.",
+                    "detail": error_msg,
                     "error_type": "integrity_error",
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
-
-        # If no error but also no success (shouldn't happen)
-        return Response(
-            {
-                "error": "Uyni claim qilishda kutilmagan xatolik yuz berdi.",
-                "error_en": "An unexpected error occurred while claiming the house.",
-            },
-            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        )
+        except Exception as e:
+            logger.error(f"Unexpected error during claim: {str(e)}")
+            return Response(
+                {
+                    "error": "Uyni claim qilishda kutilmagan xatolik yuz berdi.",
+                    "error_en": "An unexpected error occurred while claiming the house.",
+                    "detail": str(e),
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )

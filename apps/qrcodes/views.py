@@ -500,27 +500,31 @@ class ClaimHouseView(APIView):
         from django.db.models import Max
         from apps.qrcodes.models import QRCode as QRCodeModel
 
+        # Get base max ID ONCE outside loop
+        base_max_house = House.objects.aggregate(Max("id"))["id__max"] or 0
+        base_max_qr = (
+            QRCodeModel.objects.filter(house_id__isnull=False).aggregate(
+                Max("house_id")
+            )["house_id__max"]
+            or 0
+        )
+        base_next_id = max(base_max_house, base_max_qr) + 1
+
+        logger.info(
+            f"Claim start: base_max_house={base_max_house}, "
+            f"base_max_qr={base_max_qr}, will try from ID {base_next_id}"
+        )
+
         for attempt in range(max_retries):
+            # Use different ID for each attempt: base, base+1, base+2, ...
+            next_house_id = base_next_id + attempt
+
             try:
                 with transaction.atomic():
-                    # Get fresh max IDs for EACH retry inside transaction
-                    # This ensures we use the latest state
-                    max_house_id = House.objects.aggregate(Max("id"))["id__max"] or 0
-                    max_qr_house_id = (
-                        QRCodeModel.objects.filter(house_id__isnull=False).aggregate(
-                            Max("house_id")
-                        )["house_id__max"]
-                        or 0
-                    )
-
-                    # Use max from BOTH tables + attempt number
-                    # This guarantees a unique ID even with concurrent requests
-                    next_house_id = max(max_house_id, max_qr_house_id) + 1 + attempt
-
                     logger.info(
-                        f"Attempt {attempt + 1}/{max_retries}: Will use house ID {next_house_id} "
-                        f"(max_house={max_house_id}, max_qr={max_qr_house_id})"
+                        f"Attempt {attempt + 1}/{max_retries}: Trying house ID {next_house_id}"
                     )
+
                     # Lock the QR code row to prevent race conditions
                     qr = (
                         QRCode.objects.select_for_update()
@@ -593,6 +597,14 @@ class ClaimHouseView(APIView):
                             raise IntegrityError(
                                 f"house_id {next_house_id} already linked to QR {existing_qr_with_id.uuid}"
                             )
+
+                        # Double-check: Get all used house IDs for debugging
+                        used_ids = list(
+                            QRCodeModel.objects.filter(house_id__isnull=False)
+                            .values_list("house_id", flat=True)
+                            .order_by("house_id")[:20]
+                        )
+                        logger.info(f"Currently used house IDs in QRCode: {used_ids}")
 
                         # IMPORTANT: Explicitly set ID to override GapFillingIDMixin
                         # which might choose an ID that's already linked to a QRCode

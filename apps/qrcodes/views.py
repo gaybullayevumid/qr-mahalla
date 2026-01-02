@@ -534,7 +534,7 @@ class ClaimHouseView(APIView):
                 else:
                     # Create new house for this QR code
                     # Retry logic to handle race conditions with GapFillingIDMixin
-                    max_retries = 3
+                    max_retries = 5
                     house = None
                     last_error = None
 
@@ -552,7 +552,39 @@ class ClaimHouseView(APIView):
                             # Save the house first to get an ID
                             house.save()
                             logger.info(f"Successfully created house {house.id}")
+
+                            # Verify this house doesn't already have a QR code
+                            # (defensive check for OneToOne integrity)
+                            try:
+                                # Refresh from DB to check current state
+                                house.refresh_from_db()
+                                existing_qr = getattr(house, "qr_code", None)
+                                if existing_qr is not None and existing_qr != qr:
+                                    logger.warning(
+                                        f"House {house.id} already has QR code {existing_qr.uuid}, deleting and retrying"
+                                    )
+                                    # Delete this house and retry with a different ID
+                                    house.delete()
+                                    house = None
+                                    if attempt < max_retries - 1:
+                                        continue
+                                    else:
+                                        raise IntegrityError(
+                                            f"House {house.id} already has QR code {existing_qr.uuid}"
+                                        )
+                            except QRCode.DoesNotExist:
+                                # No existing QR code, this is fine
+                                pass
+
+                            # Now link the QR code to the newly created house
+                            logger.info(f"Linking QR {qr.uuid} to house {house.id}")
+                            qr.house = house
+                            qr.save(update_fields=["house"])
+                            logger.info(
+                                f"Successfully linked QR {qr.uuid} to house {house.id}"
+                            )
                             break  # Success, exit retry loop
+
                         except IntegrityError as ie:
                             last_error = ie
                             logger.warning(
@@ -575,29 +607,6 @@ class ClaimHouseView(APIView):
                         error_detail = f"Failed after {max_retries} attempts. Last error: {str(last_error)}"
                         logger.error(error_detail)
                         raise IntegrityError(error_detail)
-
-                    # Verify this house doesn't already have a QR code
-                    # (defensive check for OneToOne integrity)
-                    try:
-                        # Refresh from DB to check current state
-                        house.refresh_from_db()
-                        existing_qr = getattr(house, "qr_code", None)
-                        if existing_qr is not None and existing_qr != qr:
-                            logger.error(
-                                f"House {house.id} already has QR code {existing_qr.uuid}"
-                            )
-                            raise IntegrityError(
-                                f"House {house.id} already has QR code {existing_qr.uuid}"
-                            )
-                    except QRCode.DoesNotExist:
-                        # No existing QR code, this is fine
-                        pass
-
-                    # Now link the QR code to the newly created house
-                    logger.info(f"Linking QR {qr.uuid} to house {house.id}")
-                    qr.house = house
-                    qr.save(update_fields=["house"])
-                    logger.info(f"Successfully linked QR {qr.uuid} to house {house.id}")
 
                 ScanLog.objects.create(
                     qr=qr, scanned_by=user, ip_address=get_client_ip(request)

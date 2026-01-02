@@ -6,23 +6,21 @@ from django.db import migrations
 def cleanup_orphaned_house_ids(apps, schema_editor):
     """
     Set house_id to NULL for all QRCodes where the referenced House no longer exists.
-    
+
     This fixes the issue where deleted Houses leave orphaned house_id values
     in the QRCode table, causing UNIQUE constraint violations.
     """
-    QRCode = apps.get_model('qrcodes', 'QRCode')
-    House = apps.get_model('houses', 'House')
-    
+    QRCode = apps.get_model("qrcodes", "QRCode")
+    House = apps.get_model("houses", "House")
+
     # Get all existing House IDs
-    existing_house_ids = set(House.objects.values_list('id', flat=True))
-    
+    existing_house_ids = set(House.objects.values_list("id", flat=True))
+
     # Find QRCodes with orphaned house_ids
-    orphaned_qrcodes = QRCode.objects.filter(
-        house_id__isnull=False
-    ).exclude(
+    orphaned_qrcodes = QRCode.objects.filter(house_id__isnull=False).exclude(
         house_id__in=existing_house_ids
     )
-    
+
     count = orphaned_qrcodes.count()
     if count > 0:
         print(f"Found {count} QRCodes with orphaned house_ids. Cleaning up...")

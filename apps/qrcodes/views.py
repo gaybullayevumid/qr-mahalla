@@ -635,7 +635,6 @@ class ClaimHouseView(APIView):
                             f"Selected safe House ID: {random_id} "
                             f"(after {attempts_to_find_id} attempts)"
                         )
-                        )
 
                         # Create house with random ID
                         house = House(

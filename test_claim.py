@@ -15,7 +15,10 @@ user, _ = User.objects.get_or_create(
 )
 
 # Get QR code
-qr = QRCode.objects.get(uuid="65eb5437b84b4fc9")
+qr = QRCode.objects.first()
+if not qr:
+    print("❌ No QR codes found!")
+    exit(1)
 print(f"QR: {qr.uuid}, has_house: {qr.house is not None}")
 
 # Get mahalla

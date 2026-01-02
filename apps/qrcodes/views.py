@@ -494,7 +494,7 @@ class ClaimHouseView(APIView):
             )
 
         # Retry logic for handling GapFillingIDMixin conflicts
-        max_retries = 20
+        max_retries = 50  # Increased from 20 to handle more conflicts
         last_error = None
 
         from django.db.models import Max
@@ -503,12 +503,8 @@ class ClaimHouseView(APIView):
         for attempt in range(max_retries):
             try:
                 with transaction.atomic():
-                    # Lock QRCode and House tables to prevent race conditions
-                    # This ensures only one transaction can get max ID at a time
-                    QRCodeModel.objects.select_for_update().exists()
-                    House.objects.select_for_update().exists()
-
-                    # Now safely get max IDs within locked transaction
+                    # Get fresh max IDs for EACH retry inside transaction
+                    # This ensures we use the latest state
                     max_house_id = House.objects.aggregate(Max("id"))["id__max"] or 0
                     max_qr_house_id = (
                         QRCodeModel.objects.filter(house_id__isnull=False).aggregate(
@@ -517,12 +513,13 @@ class ClaimHouseView(APIView):
                         or 0
                     )
 
-                    # Start with max + 1, then add attempt number for retries
+                    # Use max from BOTH tables + attempt number
+                    # This guarantees a unique ID even with concurrent requests
                     next_house_id = max(max_house_id, max_qr_house_id) + 1 + attempt
 
                     logger.info(
-                        f"Attempt {attempt + 1}: Will use house ID {next_house_id} "
-                        f"(max_house={max_house_id}, max_qr={max_qr_house_id}, attempt={attempt})"
+                        f"Attempt {attempt + 1}/{max_retries}: Will use house ID {next_house_id} "
+                        f"(max_house={max_house_id}, max_qr={max_qr_house_id})"
                     )
                     # Lock the QR code row to prevent race conditions
                     qr = (
@@ -578,6 +575,25 @@ class ClaimHouseView(APIView):
                             f"Creating new house (attempt {attempt + 1}) with ID {next_house_id}"
                         )
 
+                        # Before creating house, verify this ID isn't already used by another QR
+                        # This prevents IntegrityError before it happens
+                        existing_qr_with_id = (
+                            QRCodeModel.objects.filter(house_id=next_house_id)
+                            .exclude(id=qr.id)
+                            .first()
+                        )
+
+                        if existing_qr_with_id:
+                            # This ID is already in use, skip to next retry
+                            logger.warning(
+                                f"ID {next_house_id} already used by QR {existing_qr_with_id.uuid}, "
+                                f"will try next ID"
+                            )
+                            # Raise IntegrityError to trigger retry
+                            raise IntegrityError(
+                                f"house_id {next_house_id} already linked to QR {existing_qr_with_id.uuid}"
+                            )
+
                         # IMPORTANT: Explicitly set ID to override GapFillingIDMixin
                         # which might choose an ID that's already linked to a QRCode
                         house = House(
@@ -631,9 +647,6 @@ class ClaimHouseView(APIView):
                         }
                     )
 
-            except IntegrityError as ie:
-                last_error = ie
-                error_msg = str(ie)
             except IntegrityError as ie:
                 last_error = ie
                 error_msg = str(ie)

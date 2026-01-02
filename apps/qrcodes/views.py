@@ -563,9 +563,49 @@ class ClaimHouseView(APIView):
                         house = qr.house
                     else:
                         # Create new house with random 10-digit ID
+                        # CRITICAL: Check and clean orphaned house_ids first
+                        logger.info("Checking for orphaned house_ids before creating house")
+                        
+                        # Get all existing house IDs
+                        existing_house_ids = set(House.objects.values_list('id', flat=True))
+                        
+                        # Get all house_ids currently used in QRCode (including orphaned ones)
+                        used_house_ids_in_qr = set(
+                            QRCode.objects.filter(house_id__isnull=False)
+                            .values_list('house_id', flat=True)
+                        )
+                        
+                        # Find orphaned IDs (in QRCode but not in House)
+                        orphaned_ids = used_house_ids_in_qr - existing_house_ids
+                        
+                        if orphaned_ids:
+                            logger.warning(
+                                f"Found {len(orphaned_ids)} orphaned house_ids: {list(orphaned_ids)[:10]}... "
+                                f"Cleaning up..."
+                            )
+                            # Clean up orphaned house_ids
+                            QRCode.objects.filter(house_id__in=orphaned_ids).update(house_id=None)
+                            logger.info(f"Cleaned up {len(orphaned_ids)} orphaned house_ids")
+                        
+                        # Generate random ID that's NOT in either set
                         random_id = random.randint(1_000_000_000, 9_999_999_999)
+                        
+                        # Make sure it's not in used IDs (after cleanup)
+                        attempts_to_find_id = 0
+                        while random_id in existing_house_ids or random_id in used_house_ids_in_qr:
+                            random_id = random.randint(1_000_000_000, 9_999_999_999)
+                            attempts_to_find_id += 1
+                            if attempts_to_find_id > 100:
+                                # Fallback: use timestamp-based ID
+                                import time
+                                random_id = int(time.time() * 1000000)
+                                break
 
-                        logger.info(f"Creating house with random ID {random_id}")
+                        logger.info(
+                            f"Creating house with random ID {random_id} "
+                            f"(existing houses: {len(existing_house_ids)}, "
+                            f"used in QR: {len(used_house_ids_in_qr)})"
+                        )
 
                         # Create house with random ID
                         house = House(

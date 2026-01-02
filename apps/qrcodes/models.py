@@ -47,18 +47,18 @@ class QRCode(GapFillingIDMixin, models.Model):
         """Generate UUID and QR image if not exists before saving."""
         if not self.uuid:
             self.uuid = uuid.uuid4().hex[:16]
-        
+
         # Generate QR image if this is a new object or image doesn't exist
         is_new = self.pk is None
-        
+
         super().save(*args, **kwargs)
-        
+
         # Generate image after first save (so we have an ID)
         if is_new or not self.image:
             self.generate_qr_image()
             if self.image:
                 # Save again to update the image field
-                super().save(update_fields=['image'])
+                super().save(update_fields=["image"])
 
     def get_qr_url(self) -> str:
         """

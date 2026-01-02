@@ -499,24 +499,22 @@ class ClaimHouseView(APIView):
 
         from django.db.models import Max
         from apps.qrcodes.models import QRCode as QRCodeModel
+        import time
+        import random
 
-        # Get base max ID ONCE outside loop
-        base_max_house = House.objects.aggregate(Max("id"))["id__max"] or 0
-        base_max_qr = (
-            QRCodeModel.objects.filter(house_id__isnull=False).aggregate(
-                Max("house_id")
-            )["house_id__max"]
-            or 0
-        )
-        base_next_id = max(base_max_house, base_max_qr) + 1
+        # Strategy: Use timestamp-based ID to avoid conflicts with old data
+        # Format: timestamp (seconds since epoch) + random suffix
+        # This ensures unique IDs even with concurrent requests and old data
+        timestamp_base = int(time.time())  # Current Unix timestamp
+        random_offset = random.randint(1, 1000)  # Random 1-1000
+        base_next_id = timestamp_base * 1000 + random_offset  # e.g., 1704207600000
 
         logger.info(
-            f"Claim start: base_max_house={base_max_house}, "
-            f"base_max_qr={base_max_qr}, will try from ID {base_next_id}"
+            f"Claim start: Using timestamp-based ID starting from {base_next_id}"
         )
 
         for attempt in range(max_retries):
-            # Use different ID for each attempt: base, base+1, base+2, ...
+            # Use different ID for each attempt
             next_house_id = base_next_id + attempt
 
             try:

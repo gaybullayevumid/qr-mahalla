@@ -494,6 +494,31 @@ class ClaimHouseView(APIView):
             )
 
         logger.info("Claim start: Using random House IDs with retry logic")
+        
+        # CRITICAL: Cleanup orphaned house_ids BEFORE any transaction attempts
+        # This prevents UNIQUE constraint errors from orphaned references
+        logger.info("Pre-claim cleanup: checking for orphaned house_ids globally")
+        
+        try:
+            existing_house_ids = set(House.objects.values_list("id", flat=True))
+            used_house_ids_in_qr = set(
+                QRCode.objects.filter(house_id__isnull=False).values_list(
+                    "house_id", flat=True
+                )
+            )
+            orphaned_ids = used_house_ids_in_qr - existing_house_ids
+            
+            if orphaned_ids:
+                logger.warning(
+                    f"Found {len(orphaned_ids)} orphaned house_ids: {sorted(list(orphaned_ids))[:20]}..."
+                )
+                cleaned = QRCode.objects.filter(house_id__in=orphaned_ids).update(house_id=None)
+                logger.info(f"Successfully cleaned up {cleaned} orphaned house_ids")
+            else:
+                logger.info("No orphaned house_ids found. Database is clean.")
+        except Exception as e:
+            logger.error(f"Error during orphaned house_ids cleanup: {str(e)}")
+            # Continue anyway, retry logic will handle conflicts
 
         # Retry logic OUTSIDE transaction to avoid "can't execute queries" error
         import random
@@ -563,79 +588,11 @@ class ClaimHouseView(APIView):
                         house = qr.house
                     else:
                         # Create new house with random 10-digit ID
-                        # CRITICAL: Check and clean orphaned house_ids first
-                        logger.info(
-                            "Checking for orphaned house_ids before creating house"
-                        )
-
-                        # Get all existing house IDs
-                        existing_house_ids = set(
-                            House.objects.values_list("id", flat=True)
-                        )
-
-                        # Get all house_ids currently used in QRCode (including orphaned ones)
-                        used_house_ids_in_qr = set(
-                            QRCode.objects.filter(house_id__isnull=False).values_list(
-                                "house_id", flat=True
-                            )
-                        )
-
-                        # Find orphaned IDs (in QRCode but not in House)
-                        orphaned_ids = used_house_ids_in_qr - existing_house_ids
-
-                        if orphaned_ids:
-                            logger.warning(
-                                f"Found {len(orphaned_ids)} orphaned house_ids: {list(orphaned_ids)[:10]}... "
-                                f"Cleaning up..."
-                            )
-                            # Clean up orphaned house_ids
-                            QRCode.objects.filter(house_id__in=orphaned_ids).update(
-                                house_id=None
-                            )
-                            logger.info(
-                                f"Cleaned up {len(orphaned_ids)} orphaned house_ids"
-                            )
-
-                            # IMPORTANT: Refresh the used_house_ids_in_qr after cleanup
-                            used_house_ids_in_qr = set(
-                                QRCode.objects.filter(
-                                    house_id__isnull=False
-                                ).values_list("house_id", flat=True)
-                            )
-                            logger.info(
-                                f"After cleanup: {len(used_house_ids_in_qr)} house_ids remain in QRCode"
-                            )
-
-                        # Combine both sets to get ALL unavailable IDs
-                        all_unavailable_ids = existing_house_ids | used_house_ids_in_qr
-
-                        logger.info(
-                            f"Total unavailable IDs: {len(all_unavailable_ids)} "
-                            f"(houses: {len(existing_house_ids)}, QR reserved: {len(used_house_ids_in_qr)})"
-                        )
-
-                        # Generate random ID that's NOT in unavailable set
+                        # Orphaned house_ids already cleaned up before transaction
+                        logger.info("Generating random House ID")
+                        
                         random_id = random.randint(1_000_000_000, 9_999_999_999)
-
-                        # Make sure it's not in used IDs
-                        attempts_to_find_id = 0
-                        while random_id in all_unavailable_ids:
-                            random_id = random.randint(1_000_000_000, 9_999_999_999)
-                            attempts_to_find_id += 1
-                            if attempts_to_find_id > 100:
-                                # Fallback: use timestamp-based unique ID
-                                import time
-
-                                random_id = int(time.time() * 1000000)
-                                # Double check this timestamp ID is also available
-                                while random_id in all_unavailable_ids:
-                                    random_id += 1
-                                break
-
-                        logger.info(
-                            f"Selected safe House ID: {random_id} "
-                            f"(after {attempts_to_find_id} attempts)"
-                        )
+                        logger.info(f"Selected House ID: {random_id}")
 
                         # Create house with random ID
                         house = House(

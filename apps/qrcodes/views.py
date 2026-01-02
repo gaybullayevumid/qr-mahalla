@@ -548,12 +548,19 @@ class ClaimHouseView(APIView):
                     else:
                         # Create new house
                         logger.info(f"Creating new house (attempt {attempt + 1})")
-                        house = House.objects.create(
+
+                        # Get next available ID and ensure it's safe
+                        house_id = House.get_next_available_id()
+                        logger.info(f"GapFillingIDMixin suggested ID: {house_id}")
+
+                        house = House(
+                            id=house_id,
                             address=validated_data["address"],
                             house_number=validated_data["house_number"],
                             mahalla=mahalla,
                             owner=user,
                         )
+                        house.save()
                         logger.info(f"Created house {house.id}")
 
                         # Link QR to house

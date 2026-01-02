@@ -42,26 +42,30 @@ class GapFillingIDMixin(models.Model):
             # Import here to avoid circular imports
             from apps.qrcodes.models import QRCode
 
-            # Check if there's a QRCode pointing to a House with this ID
-            # (even if the House was deleted, the QRCode might still exist)
-            qr_exists = QRCode.objects.filter(house_id=expected_id).exists()
-            logger.info(f"House: Checking ID {expected_id}, QR exists: {qr_exists}")
-
+            # For House model, be extra safe - check both existing house IDs
+            # and QRCode house_id references to avoid conflicts
             attempts = 0
             max_attempts = 100
-            while qr_exists and attempts < max_attempts:
+
+            while attempts < max_attempts:
+                # Check if there's a QRCode pointing to this ID
+                qr_exists = QRCode.objects.filter(house_id=expected_id).exists()
+
+                if not qr_exists:
+                    # This ID is safe to use
+                    logger.info(f"House: ID {expected_id} is safe (no QR code)")
+                    break
+
+                # This ID has a QR code, try next
+                logger.info(f"House: ID {expected_id} has QR code, trying next")
                 expected_id += 1
-                # Also check if this new ID is in existing_ids
+                # Skip IDs that are in existing_ids
                 while expected_id in existing_ids:
                     expected_id += 1
-                qr_exists = QRCode.objects.filter(house_id=expected_id).exists()
                 attempts += 1
-                logger.info(
-                    f"House: Attempt {attempts}, trying ID {expected_id}, QR exists: {qr_exists}"
-                )
 
             if attempts >= max_attempts:
-                # Fallback: use max ID + 1
+                # Fallback: use max ID + 1 to avoid all conflicts
                 max_id = max(existing_ids) if existing_ids else 0
                 expected_id = max_id + 1
                 logger.warning(

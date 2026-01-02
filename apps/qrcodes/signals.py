@@ -9,6 +9,7 @@ from .models import QRCode
 logger = logging.getLogger(__name__)
 
 MINIMUM_UNCLAIMED_HOUSES = 10
+MINIMUM_UNCLAIMED_QRCODES = 10  # Maintain 10 unclaimed QR codes
 
 
 @receiver(post_save, sender=House)
@@ -61,4 +62,42 @@ def maintain_unclaimed_houses(sender, instance, created, **kwargs):
         logger.info(
             f"Created {houses_needed} new unclaimed houses to maintain "
             f"minimum of {MINIMUM_UNCLAIMED_HOUSES}"
+        )
+
+
+@receiver(post_save, sender=QRCode)
+def maintain_unclaimed_qrcodes(sender, instance, created, **kwargs):
+    """
+    Maintain minimum number of unclaimed QR codes.
+
+    When a QR code gets claimed (linked to a house), automatically
+    generate a new unclaimed QR code to maintain the pool of 10.
+
+    Args:
+        sender: Model class (QRCode)
+        instance: The actual QRCode instance being saved
+        created: Boolean indicating if this is a new object
+        **kwargs: Additional keyword arguments
+    """
+    # Skip if this is a new QR code being created
+    if created:
+        return
+
+    # Only act when QR code gets claimed (house assigned)
+    if not instance.house:
+        return
+
+    # Check unclaimed QR codes count
+    unclaimed_count = QRCode.objects.filter(house__isnull=True).count()
+
+    if unclaimed_count < MINIMUM_UNCLAIMED_QRCODES:
+        qrcodes_needed = MINIMUM_UNCLAIMED_QRCODES - unclaimed_count
+
+        # Create new unclaimed QR codes
+        for i in range(qrcodes_needed):
+            QRCode.objects.create()
+
+        logger.info(
+            f"Created {qrcodes_needed} new unclaimed QR codes to maintain "
+            f"minimum of {MINIMUM_UNCLAIMED_QRCODES}. Current unclaimed: {unclaimed_count + qrcodes_needed}"
         )

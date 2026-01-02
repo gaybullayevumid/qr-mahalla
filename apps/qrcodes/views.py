@@ -497,6 +497,7 @@ class ClaimHouseView(APIView):
 
         # Retry logic OUTSIDE transaction to avoid "can't execute queries" error
         import random
+
         max_attempts = 50
         last_error = None
 
@@ -542,7 +543,9 @@ class ClaimHouseView(APIView):
                     user.first_name = validated_data["first_name"]
                     user.last_name = validated_data["last_name"]
                     user.scanned_qr_code = qr.uuid  # Save scanned QR UUID
-                    user.save(update_fields=["first_name", "last_name", "scanned_qr_code"])
+                    user.save(
+                        update_fields=["first_name", "last_name", "scanned_qr_code"]
+                    )
 
                     logger.info(
                         f"Updated user {user.phone}: {user.first_name} {user.last_name}, "
@@ -561,7 +564,7 @@ class ClaimHouseView(APIView):
                     else:
                         # Create new house with random 10-digit ID
                         random_id = random.randint(1_000_000_000, 9_999_999_999)
-                        
+
                         logger.info(f"Creating house with random ID {random_id}")
 
                         # Create house with random ID
@@ -578,7 +581,9 @@ class ClaimHouseView(APIView):
                         # Link QR to house
                         qr.house = house
                         qr.save(update_fields=["house"])
-                        logger.info(f"Successfully linked QR {qr.uuid} to house {house.id}")
+                        logger.info(
+                            f"Successfully linked QR {qr.uuid} to house {house.id}"
+                        )
 
                     # Log the scan
                     ScanLog.objects.create(
@@ -615,16 +620,17 @@ class ClaimHouseView(APIView):
             except IntegrityError as ie:
                 last_error = ie
                 error_msg = str(ie)
-                logger.warning(
-                    f"Attempt {attempt + 1} failed: {error_msg}"
-                )
-                
+                logger.warning(f"Attempt {attempt + 1} failed: {error_msg}")
+
                 # If UNIQUE constraint on house_id, retry with different ID
-                if "unique constraint" in error_msg.lower() and "house_id" in error_msg.lower():
+                if (
+                    "unique constraint" in error_msg.lower()
+                    and "house_id" in error_msg.lower()
+                ):
                     if attempt < max_attempts - 1:
                         logger.info(f"Will retry with new random ID...")
                         continue
-                
+
                 # For other IntegrityErrors, stop retrying
                 break
             except QRCode.DoesNotExist:
@@ -638,14 +644,17 @@ class ClaimHouseView(APIView):
                 if attempt < max_attempts - 1:
                     continue
                 break
-            
+
         # If we get here, all retries failed
         if last_error:
             logger.error(f"Failed after {max_attempts} attempts")
             error_msg = str(last_error)
-            
+
             if isinstance(last_error, IntegrityError):
-                if "unique constraint" in error_msg.lower() or "duplicate" in error_msg.lower():
+                if (
+                    "unique constraint" in error_msg.lower()
+                    or "duplicate" in error_msg.lower()
+                ):
                     return Response(
                         {
                             "error": "Bu uy allaqachon boshqa QR kod bilan bog'langan.",
@@ -664,7 +673,7 @@ class ClaimHouseView(APIView):
                     },
                     status=status.HTTP_400_BAD_REQUEST,
                 )
-            
+
             return Response(
                 {
                     "error": "Uyni claim qilishda kutilmagan xatolik yuz berdi.",
@@ -673,7 +682,7 @@ class ClaimHouseView(APIView):
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
-        
+
         # Should never reach here
         return Response(
             {

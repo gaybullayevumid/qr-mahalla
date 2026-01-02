@@ -595,12 +595,12 @@ class ClaimHouseView(APIView):
                             logger.info(
                                 f"Cleaned up {len(orphaned_ids)} orphaned house_ids"
                             )
-                            
+
                             # IMPORTANT: Refresh the used_house_ids_in_qr after cleanup
                             used_house_ids_in_qr = set(
-                                QRCode.objects.filter(house_id__isnull=False).values_list(
-                                    "house_id", flat=True
-                                )
+                                QRCode.objects.filter(
+                                    house_id__isnull=False
+                                ).values_list("house_id", flat=True)
                             )
                             logger.info(
                                 f"After cleanup: {len(used_house_ids_in_qr)} house_ids remain in QRCode"
@@ -608,7 +608,7 @@ class ClaimHouseView(APIView):
 
                         # Combine both sets to get ALL unavailable IDs
                         all_unavailable_ids = existing_house_ids | used_house_ids_in_qr
-                        
+
                         logger.info(
                             f"Total unavailable IDs: {len(all_unavailable_ids)} "
                             f"(houses: {len(existing_house_ids)}, QR reserved: {len(used_house_ids_in_qr)})"
@@ -625,6 +625,7 @@ class ClaimHouseView(APIView):
                             if attempts_to_find_id > 100:
                                 # Fallback: use timestamp-based unique ID
                                 import time
+
                                 random_id = int(time.time() * 1000000)
                                 # Double check this timestamp ID is also available
                                 while random_id in all_unavailable_ids:

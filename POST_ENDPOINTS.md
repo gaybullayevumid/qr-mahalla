@@ -242,6 +242,49 @@ if (claimResponse.status === 200) {
 
 ---
 
+## 4. 🏘️ GET HOUSES - Foydalanuvchi uylari
+
+**Endpoint:** `GET /api/houses/`
+
+**Qachon ishlatiladi:** User o'z claim qilgan uylarini ko'rish uchun
+
+**Headers:**
+```
+Authorization: Token eyJ0eXAiOiJKV1QiLCJhbGc...
+```
+
+**Response (200 OK):**
+```json
+[
+  {
+    "id": 1234567890,
+    "owner": 1,
+    "mahalla": 23,
+    "house_number": "12",
+    "address": "Yunusobod tumani, Bodomzor MFY, 12-uy",
+    "created_at": "2026-01-02T12:34:56Z"
+  }
+]
+```
+
+**JavaScript misoli:**
+```javascript
+const housesResponse = await axios.get('/api/houses/', {
+  headers: {
+    'Authorization': `Token ${token}`
+  }
+});
+
+console.log('My houses:', housesResponse.data);
+```
+
+**Role-based Access:**
+- `client` - faqat o'z uylarini ko'radi
+- `leader` - o'z mahallasidagi barcha uylarni ko'radi  
+- `admin` - barcha uylarni ko'radi
+
+---
+
 ## 📊 To'liq Workflow (Ketma-ketlik)
 
 ```

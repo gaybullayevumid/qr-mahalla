@@ -23,6 +23,7 @@ urlpatterns = [
     path(
         "api/", include("apps.regions.urls")
     ),  # This includes regions/, districts/, mahallas/
+    path("api/", include("apps.houses.urls")),  # Houses endpoint
     path("api/qrcodes/", include("apps.qrcodes.urls")),
     path(
         "swagger/",

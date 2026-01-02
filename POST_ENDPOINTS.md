@@ -506,6 +506,49 @@ export default QRClaimFlow;
 
 ---
 
+## 🔧 Backend O'zgarishlar
+
+### ✅ UNIQUE Constraint Olib Tashlandi
+
+**Muammo:** `qrcodes_qrcode.house_id` da UNIQUE constraint bor edi. Bu orphaned house_id lar yoki random ID collisionlar tufayli xatolarga olib kelardi.
+
+**Yechim:** `QRCode.house` ni `OneToOneField` dan `ForeignKey` ga o'zgartirildi.
+
+**O'zgarish:**
+```python
+# ESKI (OneToOneField - UNIQUE constraint)
+class QRCode(models.Model):
+    house = models.OneToOneField(
+        House,
+        on_delete=models.CASCADE,
+        related_name="qr_code",  # house.qr_code
+        null=True,
+        blank=True
+    )
+
+# YANGI (ForeignKey - UNIQUE constraint YO'Q)
+class QRCode(models.Model):
+    house = models.ForeignKey(
+        House,
+        on_delete=models.CASCADE,
+        related_name="qr_codes",  # house.qr_codes.all()
+        null=True,
+        blank=True
+    )
+```
+
+**Natija:**
+- ✅ Bir house ko'p QR code'larga bog'lanishi mumkin
+- ✅ Orphaned house_id lar muammo emas
+- ✅ Random ID collision xatolari yo'q
+- ✅ "Bu uy allaqachon boshqa QR kod bilan bog'langan" xatosi hal qilindi
+
+**Migration:**
+- `apps/qrcodes/migrations/0007_change_house_to_foreignkey.py`
+- Production (Railway) da avtomatik apply bo'ladi `python manage.py migrate` bilan
+
+---
+
 ## ✅ Xulosa
 
 **3 ta POST endpoint:**

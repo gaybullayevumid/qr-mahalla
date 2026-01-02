@@ -1,20 +1,64 @@
 # Railway Production Database Cleanup
 
-## Muammo
+## ✅ Muammo HAL QILINDI!
 
-Frontend claim qilganda "Bu uy allaqachon boshqa QR kod bilan bog'langan" xatosi chiqyapti.
+**Backend o'zgarish:** `QRCode.house` field `OneToOneField` dan `ForeignKey` ga o'zgartirildi.
 
-**Sabab:** Production database da orphaned `house_id` references bor.
+**Natija:**
+- ✅ `house_id` UNIQUE constraint olib tashlandi
+- ✅ Bir house ko'p QR code'larga bog'lanishi mumkin
+- ✅ Orphaned house_id lar muammo emas
+- ✅ "Bu uy allaqachon boshqa QR kod bilan bog'langan" xatosi yo'q
 
-## Yechim
+## Railway Deployment
 
-### 1. Railway Console ga kiring
+### 1. Migration Avtomatik Apply Bo'ladi
+
+```bash
+# Railway avtomatik ishga tushiradi:
+python manage.py migrate
+
+# Migration:
+# apps/qrcodes/migrations/0007_change_house_to_foreignkey.py
+```
+
+### 2. Tekshirish (Optional)
+
+Railway console ga kirib tekshiring:
 
 ```bash
 # Railway dashboard -> qr-mahalla project -> Shell
 ```
 
-### 2. Orphaned house_ids ni tekshiring
+### 2. Tekshirish (Optional)
+
+Railway console ga kirib tekshiring:
+
+```bash
+# Railway dashboard -> qr-mahalla project -> Shell
+```
+
+```python
+python manage.py shell
+
+from django.db import connection
+cursor = connection.cursor()
+
+# Check if UNIQUE constraint removed
+cursor.execute("SELECT sql FROM sqlite_master WHERE type='index' AND tbl_name='qrcodes_qrcode' AND name LIKE '%house_id%'")
+indexes = cursor.fetchall()
+
+if not indexes:
+    print("✅ UNIQUE constraint removed!")
+else:
+    print("❌ UNIQUE constraint still exists:")
+    for idx in indexes:
+        print(f"  {idx[0]}")
+```
+
+## Eski Orphaned house_ids (Agar kerak bo'lsa)
+
+Agar hali ham orphaned house_ids bor bo'lsa, ularni tozalash shart emas. Lekin xohlasangiz:
 
 ```python
 python manage.py shell

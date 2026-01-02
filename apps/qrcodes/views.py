@@ -459,6 +459,7 @@ class ClaimHouseView(APIView):
                 user.save(update_fields=["first_name", "last_name"])
 
                 if qr.house:
+                    # Update existing house
                     qr.house.address = validated_data["address"]
                     qr.house.house_number = validated_data["house_number"]
                     qr.house.mahalla = mahalla
@@ -466,14 +467,55 @@ class ClaimHouseView(APIView):
                     qr.house.save()
                     house = qr.house
                 else:
-                    house = House.objects.create(
-                        address=validated_data["address"],
-                        house_number=validated_data["house_number"],
-                        mahalla=mahalla,
-                        owner=user,
-                    )
+                    # Create new house for this QR code
+                    # Retry logic to handle race conditions with GapFillingIDMixin
+                    max_retries = 3
+                    house = None
+
+                    for attempt in range(max_retries):
+                        try:
+                            house = House(
+                                address=validated_data["address"],
+                                house_number=validated_data["house_number"],
+                                mahalla=mahalla,
+                                owner=user,
+                            )
+                            # Save the house first to get an ID
+                            house.save()
+                            break  # Success, exit retry loop
+                        except IntegrityError as ie:
+                            # Check if it's a primary key conflict (GapFillingIDMixin race condition)
+                            if "PRIMARY KEY" in str(
+                                ie
+                            ).upper() or "UNIQUE constraint failed: houses_house.id" in str(
+                                ie
+                            ):
+                                if attempt < max_retries - 1:
+                                    # Reset house ID and retry
+                                    house = None
+                                    continue
+                            # If it's not a PK conflict or we're out of retries, re-raise
+                            raise
+
+                    if house is None:
+                        raise IntegrityError(
+                            "Failed to create house after multiple attempts"
+                        )
+
+                    # Verify this house doesn't already have a QR code
+                    # (defensive check for OneToOne integrity)
+                    if (
+                        hasattr(house, "qr_code")
+                        and house.qr_code is not None
+                        and house.qr_code != qr
+                    ):
+                        raise IntegrityError(
+                            f"House {house.id} already has QR code {house.qr_code.uuid}"
+                        )
+
+                    # Now link the QR code to the newly created house
                     qr.house = house
-                    qr.save()
+                    qr.save(update_fields=["house"])
 
                 ScanLog.objects.create(
                     qr=qr, scanned_by=user, ip_address=get_client_ip(request)
@@ -505,17 +547,46 @@ class ClaimHouseView(APIView):
                 )
 
         except IntegrityError as e:
+            # Log the full error for debugging
+            import logging
+
+            logger = logging.getLogger(__name__)
+            logger.error(f"IntegrityError claiming QR {uuid}: {str(e)}", exc_info=True)
+
+            error_msg = str(e).lower()
+            if "unique constraint" in error_msg or "duplicate" in error_msg:
+                if (
+                    "house" in error_msg
+                    or "qr_code" in error_msg
+                    or "one-to-one" in error_msg
+                ):
+                    return Response(
+                        {
+                            "error": "Bu uy allaqachon boshqa QR kod bilan bog'langan.",
+                            "error_en": "This house is already linked to another QR code.",
+                            "detail": str(e),
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
             return Response(
                 {
-                    "error": "Database integrity error. This house may already have a QR code or there's a duplicate entry.",
+                    "error": "Ma'lumotlar bazasida xatolik yuz berdi. Iltimos qaytadan urinib ko'ring.",
+                    "error_en": "Database integrity error occurred. Please try again.",
                     "detail": str(e),
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )
         except Exception as e:
+            # Log the error for debugging
+            import logging
+
+            logger = logging.getLogger(__name__)
+            logger.error(f"Error claiming house for QR {uuid}: {str(e)}", exc_info=True)
+
             return Response(
                 {
-                    "error": "An unexpected error occurred while claiming the house",
+                    "error": "Uyni claim qilishda kutilmagan xatolik yuz berdi.",
+                    "error_en": "An unexpected error occurred while claiming the house.",
                     "detail": str(e),
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,

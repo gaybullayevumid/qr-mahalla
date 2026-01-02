@@ -416,26 +416,59 @@ class ClaimHouseView(APIView):
 
     permission_classes = [IsAuthenticated]
 
-    def post(self, request: Request, uuid: str) -> Response:
-        """Handle house claim request."""
+    def get(self, request: Request, uuid: str) -> Response:
+        """Get claim status and debug info for a QR code."""
         try:
-            qr = QRCode.objects.select_related("house__mahalla").get(uuid=uuid)
+            qr = QRCode.objects.select_related(
+                "house", "house__owner", "house__mahalla"
+            ).get(uuid=uuid)
+
+            response_data = {
+                "qr_uuid": qr.uuid,
+                "qr_id": qr.id,
+                "has_house": qr.house is not None,
+            }
+
+            if qr.house:
+                response_data["house"] = {
+                    "id": qr.house.id,
+                    "address": qr.house.address,
+                    "house_number": qr.house.house_number,
+                    "mahalla_id": qr.house.mahalla.id,
+                    "mahalla_name": qr.house.mahalla.name,
+                    "has_owner": qr.house.owner is not None,
+                }
+                if qr.house.owner:
+                    response_data["house"]["owner"] = {
+                        "id": qr.house.owner.id,
+                        "phone": qr.house.owner.phone,
+                        "first_name": qr.house.owner.first_name,
+                        "last_name": qr.house.owner.last_name,
+                    }
+
+            return Response(response_data)
         except QRCode.DoesNotExist:
             return Response(
                 {"error": "QR code not found"}, status=status.HTTP_404_NOT_FOUND
             )
 
-        if qr.house and qr.house.owner:
-            return Response(
-                {"error": "This house is already claimed"},
-                status=status.HTTP_400_BAD_REQUEST,
-            )
+    def post(self, request: Request, uuid: str) -> Response:
+        """Handle house claim request."""
+        # Log incoming request for debugging
+        import logging
+
+        logger = logging.getLogger(__name__)
+        logger.info(
+            f"Claim request for QR {uuid} from user {request.user.phone if request.user else 'anonymous'}"
+        )
 
         serializer = QRCodeClaimSerializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
         user = request.user
         validated_data = serializer.validated_data
+
+        logger.info(f"Claim data: {validated_data}")
 
         try:
             mahalla = Mahalla.objects.get(id=validated_data["mahalla"])
@@ -446,11 +479,41 @@ class ClaimHouseView(APIView):
 
         try:
             with transaction.atomic():
-                qr = QRCode.objects.select_for_update().get(uuid=uuid)
-
-                if qr.house and qr.house.owner:
+                # Lock the QR code row to prevent race conditions
+                try:
+                    qr = (
+                        QRCode.objects.select_for_update()
+                        .select_related("house", "house__owner")
+                        .get(uuid=uuid)
+                    )
+                except QRCode.DoesNotExist:
                     return Response(
-                        {"error": "This house is already claimed"},
+                        {"error": "QR code not found"}, status=status.HTTP_404_NOT_FOUND
+                    )
+
+                logger.info(
+                    f"QR {uuid}: has_house={qr.house is not None}, has_owner={qr.house.owner if qr.house else None}"
+                )
+
+                # Check if already claimed (inside transaction for consistency)
+                if qr.house and qr.house.owner:
+                    # Check if current user is trying to reclaim
+                    if qr.house.owner == user:
+                        return Response(
+                            {
+                                "error": "Siz allaqachon bu uyni claim qilgansiz.",
+                                "error_en": "You have already claimed this house.",
+                                "house_id": qr.house.id,
+                                "is_reclaim_attempt": True,
+                            },
+                            status=status.HTTP_400_BAD_REQUEST,
+                        )
+                    return Response(
+                        {
+                            "error": "Bu uy allaqachon boshqa foydalanuvchi tomonidan claim qilingan.",
+                            "error_en": "This house is already claimed by another user.",
+                            "owner": qr.house.owner.phone,
+                        },
                         status=status.HTTP_400_BAD_REQUEST,
                     )
 
@@ -460,20 +523,26 @@ class ClaimHouseView(APIView):
 
                 if qr.house:
                     # Update existing house
+                    logger.info(f"Updating existing house {qr.house.id} for QR {uuid}")
                     qr.house.address = validated_data["address"]
                     qr.house.house_number = validated_data["house_number"]
                     qr.house.mahalla = mahalla
                     qr.house.owner = user
                     qr.house.save()
+                    logger.info(f"Successfully updated house {qr.house.id}")
                     house = qr.house
                 else:
                     # Create new house for this QR code
                     # Retry logic to handle race conditions with GapFillingIDMixin
                     max_retries = 3
                     house = None
+                    last_error = None
 
                     for attempt in range(max_retries):
                         try:
+                            logger.info(
+                                f"Attempt {attempt + 1} to create house for QR {uuid}"
+                            )
                             house = House(
                                 address=validated_data["address"],
                                 house_number=validated_data["house_number"],
@@ -482,8 +551,13 @@ class ClaimHouseView(APIView):
                             )
                             # Save the house first to get an ID
                             house.save()
+                            logger.info(f"Successfully created house {house.id}")
                             break  # Success, exit retry loop
                         except IntegrityError as ie:
+                            last_error = ie
+                            logger.warning(
+                                f"IntegrityError on attempt {attempt + 1}: {str(ie)}"
+                            )
                             # Check if it's a primary key conflict (GapFillingIDMixin race condition)
                             if "PRIMARY KEY" in str(
                                 ie
@@ -498,24 +572,32 @@ class ClaimHouseView(APIView):
                             raise
 
                     if house is None:
-                        raise IntegrityError(
-                            "Failed to create house after multiple attempts"
-                        )
+                        error_detail = f"Failed after {max_retries} attempts. Last error: {str(last_error)}"
+                        logger.error(error_detail)
+                        raise IntegrityError(error_detail)
 
                     # Verify this house doesn't already have a QR code
                     # (defensive check for OneToOne integrity)
-                    if (
-                        hasattr(house, "qr_code")
-                        and house.qr_code is not None
-                        and house.qr_code != qr
-                    ):
-                        raise IntegrityError(
-                            f"House {house.id} already has QR code {house.qr_code.uuid}"
-                        )
+                    try:
+                        # Refresh from DB to check current state
+                        house.refresh_from_db()
+                        existing_qr = getattr(house, "qr_code", None)
+                        if existing_qr is not None and existing_qr != qr:
+                            logger.error(
+                                f"House {house.id} already has QR code {existing_qr.uuid}"
+                            )
+                            raise IntegrityError(
+                                f"House {house.id} already has QR code {existing_qr.uuid}"
+                            )
+                    except QRCode.DoesNotExist:
+                        # No existing QR code, this is fine
+                        pass
 
                     # Now link the QR code to the newly created house
+                    logger.info(f"Linking QR {qr.uuid} to house {house.id}")
                     qr.house = house
                     qr.save(update_fields=["house"])
+                    logger.info(f"Successfully linked QR {qr.uuid} to house {house.id}")
 
                 ScanLog.objects.create(
                     qr=qr, scanned_by=user, ip_address=get_client_ip(request)
@@ -554,6 +636,8 @@ class ClaimHouseView(APIView):
             logger.error(f"IntegrityError claiming QR {uuid}: {str(e)}", exc_info=True)
 
             error_msg = str(e).lower()
+            error_detail = str(e)
+
             if "unique constraint" in error_msg or "duplicate" in error_msg:
                 if (
                     "house" in error_msg
@@ -562,17 +646,19 @@ class ClaimHouseView(APIView):
                 ):
                     return Response(
                         {
-                            "error": "Bu uy allaqachon boshqa QR kod bilan bog'langan.",
-                            "error_en": "This house is already linked to another QR code.",
-                            "detail": str(e),
+                            "error": f"Bu uy allaqachon boshqa QR kod bilan bog'langan. ({error_detail})",
+                            "error_en": f"This house is already linked to another QR code. ({error_detail})",
+                            "detail": error_detail,
+                            "error_type": "house_already_linked",
                         },
                         status=status.HTTP_400_BAD_REQUEST,
                     )
             return Response(
                 {
-                    "error": "Ma'lumotlar bazasida xatolik yuz berdi. Iltimos qaytadan urinib ko'ring.",
-                    "error_en": "Database integrity error occurred. Please try again.",
-                    "detail": str(e),
+                    "error": f"Ma'lumotlar bazasida xatolik yuz berdi: {error_detail}",
+                    "error_en": f"Database integrity error: {error_detail}",
+                    "detail": error_detail,
+                    "error_type": "integrity_error",
                 },
                 status=status.HTTP_400_BAD_REQUEST,
             )

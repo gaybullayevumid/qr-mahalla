@@ -36,6 +36,8 @@ class QRCode(GapFillingIDMixin, models.Model):
         upload_to="qr_codes/", blank=True, null=True, verbose_name="QR code image"
     )
 
+    is_scanned = models.BooleanField(default=False, verbose_name="Is Scanned")
+
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Created at")
 
     class Meta:

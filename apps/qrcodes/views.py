@@ -114,11 +114,17 @@ def _get_user_role_and_ownership(request: Request, qr: QRCode) -> tuple[str, boo
 def _log_qr_scan(request: Request, qr: QRCode) -> None:
     """
     Log QR code scan and save UUID to user profile.
+    Mark QR code as scanned.
 
     Args:
         request: HTTP request object
         qr: QRCode object being scanned
     """
+    # Mark QR as scanned
+    if not qr.is_scanned:
+        qr.is_scanned = True
+        qr.save(update_fields=["is_scanned"])
+
     if request.user and request.user.is_authenticated:
         ScanLog.objects.create(
             qr=qr, scanned_by=request.user, ip_address=get_client_ip(request)

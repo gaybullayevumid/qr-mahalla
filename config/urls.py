@@ -25,6 +25,7 @@ urlpatterns = [
     ),  # This includes regions/, districts/, mahallas/
     path("api/", include("apps.houses.urls")),  # Houses endpoint
     path("api/qrcodes/", include("apps.qrcodes.urls")),
+    path("api/scans/", include("apps.scans.urls")),  # Scan logs endpoint
     path(
         "swagger/",
         schema_view.with_ui("swagger", cache_timeout=0),

@@ -33,7 +33,7 @@ class RegionViewSet(ModelViewSet):
         Only admins or government users can create, update, or delete.
         """
         if self.action in ["list", "retrieve", "districts", "neighborhoods"]:
-            return [IsAuthenticated()]
+            return [AllowAny()]  # Temporarily allow any
         return [IsAdminOrGov()]
 
     def get_serializer_class(self):

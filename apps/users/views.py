@@ -469,7 +469,7 @@ class UserViewSet(ModelViewSet):
     """
 
     queryset = User.objects.prefetch_related("houses__mahalla__district__region").all()
-    permission_classes = [IsAuthenticated]
+    permission_classes = [AllowAny]  # Temporarily allow any
 
     def get_serializer_class(self):
         """Return appropriate serializer class based on the action being performed."""

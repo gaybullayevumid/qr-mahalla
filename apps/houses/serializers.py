@@ -18,38 +18,21 @@ class HouseSerializer(serializers.ModelSerializer):
         read_only_fields = ("id", "created_at")
 
 
-class HouseCreateSerializer(serializers.ModelSerializer):
-    """Serializer for creating houses.
+class HouseCreateSerializer(serializers.Serializer):
+    """
+    Flexible serializer for creating houses.
 
-    The owner field is set automatically to the current user.
+    Supports two formats:
+    1. Simple format (client): {mahalla, house_number, address}
+       - Owner is set to current user
+
+    2. Admin format: {phone, ownerFirstName, ownerLastName, region, district, mahalla, address, houseNumber}
+       - Creates/finds user by phone
+       - Can validate region/district
     """
 
-    mahalla = serializers.PrimaryKeyRelatedField(
-        queryset=Mahalla.objects.all(), required=True
-    )
-
-    class Meta:
-        model = House
-        fields = ("mahalla", "house_number", "address")
-
-    def validate_mahalla(self, value):
-        """Validate mahalla field.
-
-        All authenticated users can use any mahalla ID.
-        """
-        return value
-
-
-class HouseAdminCreateSerializer(serializers.Serializer):
-    """
-    Admin serializer for creating houses with owner details.
-
-    Accepts region/district names or mahalla ID.
-    Creates or finds user by phone.
-    """
-
-    # Owner fields
-    phone = serializers.CharField(max_length=15, required=True)
+    # Owner fields (optional - for admin)
+    phone = serializers.CharField(max_length=15, required=False, allow_blank=True)
     ownerFirstName = serializers.CharField(
         max_length=100, required=False, allow_blank=True
     )
@@ -57,7 +40,7 @@ class HouseAdminCreateSerializer(serializers.Serializer):
         max_length=100, required=False, allow_blank=True
     )
 
-    # Location fields (flexible - can use names or IDs)
+    # Location fields
     region = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     district = serializers.CharField(required=False, allow_blank=True, allow_null=True)
     mahalla = serializers.IntegerField(required=True)
@@ -67,9 +50,15 @@ class HouseAdminCreateSerializer(serializers.Serializer):
     houseNumber = serializers.CharField(
         max_length=50, required=False, allow_blank=True, default=""
     )
+    house_number = serializers.CharField(
+        max_length=50, required=False, allow_blank=True, default=""
+    )
 
     def validate_phone(self, value):
         """Normalize phone number."""
+        if not value:
+            return value
+
         phone = value.strip()
 
         # If starts with +998, keep it
@@ -125,31 +114,42 @@ class HouseAdminCreateSerializer(serializers.Serializer):
         return data
 
     def create(self, validated_data):
-        """Create house with owner (create user if not exists)."""
-        phone = validated_data["phone"]
-        first_name = validated_data.get("ownerFirstName", "")
-        last_name = validated_data.get("ownerLastName", "")
+        """Create house with owner."""
         mahalla = validated_data["mahalla_obj"]
         address = validated_data["address"]
-        house_number = validated_data.get("houseNumber", "")
 
-        # Get or create user
-        user, created = User.objects.get_or_create(
-            phone=phone,
-            defaults={
-                "first_name": first_name,
-                "last_name": last_name,
-                "role": "client",
-            },
+        # Get house_number from either field name
+        house_number = validated_data.get("houseNumber") or validated_data.get(
+            "house_number", ""
         )
 
-        # Update user name if user exists but name was provided
-        if not created and (first_name or last_name):
-            if first_name:
-                user.first_name = first_name
-            if last_name:
-                user.last_name = last_name
-            user.save(update_fields=["first_name", "last_name"])
+        phone = validated_data.get("phone")
+
+        # If phone provided (admin format), create/find user
+        if phone:
+            first_name = validated_data.get("ownerFirstName", "")
+            last_name = validated_data.get("ownerLastName", "")
+
+            user, created = User.objects.get_or_create(
+                phone=phone,
+                defaults={
+                    "first_name": first_name,
+                    "last_name": last_name,
+                    "role": "client",
+                },
+            )
+
+            # Update user name if user exists but name was provided
+            if not created and (first_name or last_name):
+                if first_name:
+                    user.first_name = first_name
+                if last_name:
+                    user.last_name = last_name
+                user.save(update_fields=["first_name", "last_name"])
+        else:
+            # Use current user from request context
+            request = self.context.get("request")
+            user = request.user if request else None
 
         # Create house
         house = House.objects.create(
@@ -162,12 +162,16 @@ class HouseAdminCreateSerializer(serializers.Serializer):
         """Return house data with full details."""
         return {
             "id": instance.id,
-            "owner": {
-                "id": instance.owner.id,
-                "phone": instance.owner.phone,
-                "firstName": instance.owner.first_name,
-                "lastName": instance.owner.last_name,
-            },
+            "owner": (
+                {
+                    "id": instance.owner.id,
+                    "phone": instance.owner.phone,
+                    "firstName": instance.owner.first_name,
+                    "lastName": instance.owner.last_name,
+                }
+                if instance.owner
+                else None
+            ),
             "mahalla": {
                 "id": instance.mahalla.id,
                 "name": instance.mahalla.name,

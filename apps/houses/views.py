@@ -5,11 +5,7 @@ from rest_framework.response import Response
 from rest_framework import status
 
 from .models import House
-from .serializers import (
-    HouseSerializer,
-    HouseCreateSerializer,
-    HouseAdminCreateSerializer,
-)
+from .serializers import HouseSerializer, HouseCreateSerializer
 from .permissions import HouseAccessPermission
 
 
@@ -24,20 +20,18 @@ class HouseViewSet(ModelViewSet):
         Allow read and create for all authenticated users.
         Update and delete operations require HouseAccessPermission.
         """
-        if self.action in ["list", "retrieve", "create", "admin_create"]:
+        if self.action in ["list", "retrieve", "create"]:
             return [AllowAny()]  # Temporarily allow any for testing
         return [IsAuthenticated(), HouseAccessPermission()]
 
     def get_serializer_class(self):
-        if self.action == "admin_create":
-            return HouseAdminCreateSerializer
         if self.action in ["create", "update", "partial_update"]:
             return HouseCreateSerializer
         return HouseSerializer
 
     def perform_create(self, serializer):
-        """Set the owner to the current user when creating a house."""
-        serializer.save(owner=self.request.user)
+        """Save the house - owner handled by serializer."""
+        serializer.save()
 
     def get_queryset(self):
         user = self.request.user
@@ -55,20 +49,3 @@ class HouseViewSet(ModelViewSet):
             return queryset.filter(mahalla=user.mahalla)
 
         return queryset
-
-    @action(detail=False, methods=["post"], url_path="admin-create")
-    def admin_create(self, request):
-        """
-        Admin endpoint for creating houses with owner details.
-
-        Accepts:
-        - phone: owner phone number (will create user if not exists)
-        - ownerFirstName, ownerLastName: owner name
-        - region, district: optional validation (names)
-        - mahalla: mahalla ID (required)
-        - address, houseNumber: house details
-        """
-        serializer = HouseAdminCreateSerializer(data=request.data)
-        serializer.is_valid(raise_exception=True)
-        house = serializer.save()
-        return Response(serializer.data, status=status.HTTP_201_CREATED)

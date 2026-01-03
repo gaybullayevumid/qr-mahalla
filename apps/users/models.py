@@ -24,6 +24,16 @@ class User(AbstractBaseUser, PermissionsMixin):
         max_length=20, choices=ROLE_CHOICES, default="client", verbose_name="Role"
     )
 
+    mahalla = models.ForeignKey(
+        "regions.Mahalla",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="leaders",
+        verbose_name="Mahalla",
+        help_text="Mahalla for leader role",
+    )
+
     scanned_qr_code = models.CharField(
         max_length=16, blank=True, null=True, verbose_name="Scanned QR Code UUID"
     )

@@ -85,6 +85,7 @@ class UserListSerializer(serializers.ModelSerializer):
     """
 
     houses = serializers.SerializerMethodField()
+    mahalla_detail = serializers.SerializerMethodField()
 
     class Meta:
         model = User
@@ -94,10 +95,29 @@ class UserListSerializer(serializers.ModelSerializer):
             "first_name",
             "last_name",
             "role",
+            "mahalla",
+            "mahalla_detail",
             "is_verified",
             "houses",
         )
         read_only_fields = ("id",)
+
+    def get_mahalla_detail(self, obj):
+        """Return mahalla details if user has mahalla assigned."""
+        if obj.mahalla:
+            return {
+                "id": obj.mahalla.id,
+                "name": obj.mahalla.name,
+                "district": {
+                    "id": obj.mahalla.district.id,
+                    "name": obj.mahalla.district.name,
+                    "region": {
+                        "id": obj.mahalla.district.region.id,
+                        "name": obj.mahalla.district.region.name,
+                    },
+                },
+            }
+        return None
 
     def get_houses(self, obj):
         """
@@ -206,6 +226,7 @@ class UserCreateUpdateSerializer(serializers.ModelSerializer):
             "first_name",
             "last_name",
             "role",
+            "mahalla",
             "houses",
         )
         read_only_fields = ("id",)
@@ -214,10 +235,24 @@ class UserCreateUpdateSerializer(serializers.ModelSerializer):
             "first_name": {"required": False},
             "last_name": {"required": False},
             "role": {"required": False},
+            "mahalla": {"required": False},
         }
 
     def validate(self, data):
         """Validate the entire data structure."""
+        # If role is leader, mahalla must be provided
+        role = data.get("role")
+        mahalla = data.get("mahalla")
+
+        if role == "leader" and not mahalla:
+            raise serializers.ValidationError(
+                {"mahalla": "Mahalla is required for leader role"}
+            )
+
+        # If role is not leader, clear mahalla
+        if role and role != "leader" and mahalla:
+            data["mahalla"] = None
+
         return data
 
     def validate_phone(self, value):

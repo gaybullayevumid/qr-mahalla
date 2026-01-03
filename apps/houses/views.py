@@ -25,9 +25,8 @@ class HouseViewSet(ModelViewSet):
         return [IsAuthenticated(), HouseAccessPermission()]
 
     def get_serializer_class(self):
-        if self.action in ["create", "update", "partial_update"]:
-            return HouseCreateSerializer
-        return HouseSerializer
+        # Use HouseCreateSerializer for all actions to get consistent output format
+        return HouseCreateSerializer
 
     def perform_create(self, serializer):
         """Save the house - owner handled by serializer."""

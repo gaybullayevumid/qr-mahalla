@@ -28,7 +28,7 @@ class HouseCreateSerializer(serializers.Serializer):
 
     2. Admin format: {phone, ownerFirstName, ownerLastName, region, district, mahalla, address, houseNumber}
        - Creates/finds user by phone
-       - Can validate region/district
+       - Region and district are IDs (not names)
     """
 
     # Owner fields (optional - for admin)
@@ -40,9 +40,9 @@ class HouseCreateSerializer(serializers.Serializer):
         max_length=100, required=False, allow_blank=True
     )
 
-    # Location fields
-    region = serializers.CharField(required=False, allow_blank=True, allow_null=True)
-    district = serializers.CharField(required=False, allow_blank=True, allow_null=True)
+    # Location fields - all IDs (frontend select)
+    region = serializers.IntegerField(required=False, allow_null=True)
+    district = serializers.IntegerField(required=False, allow_null=True)
     mahalla = serializers.IntegerField(required=True)
 
     # House fields
@@ -78,8 +78,8 @@ class HouseCreateSerializer(serializers.Serializer):
     def validate(self, data):
         """Validate mahalla exists and belongs to region/district if provided."""
         mahalla_id = data.get("mahalla")
-        region_name = data.get("region")
-        district_name = data.get("district")
+        region_id = data.get("region")
+        district_id = data.get("district")
 
         try:
             mahalla = Mahalla.objects.select_related("district__region").get(
@@ -87,20 +87,20 @@ class HouseCreateSerializer(serializers.Serializer):
             )
 
             # Validate region if provided
-            if region_name:
-                if mahalla.district.region.name.lower() != region_name.lower():
+            if region_id:
+                if mahalla.district.region.id != region_id:
                     raise serializers.ValidationError(
                         {
-                            "region": f"Mahalla ID {mahalla_id} does not belong to region '{region_name}'"
+                            "region": f"Mahalla {mahalla.name} does not belong to region ID {region_id}"
                         }
                     )
 
             # Validate district if provided
-            if district_name:
-                if mahalla.district.name.lower() != district_name.lower():
+            if district_id:
+                if mahalla.district.id != district_id:
                     raise serializers.ValidationError(
                         {
-                            "district": f"Mahalla ID {mahalla_id} does not belong to district '{district_name}'"
+                            "district": f"Mahalla {mahalla.name} does not belong to district ID {district_id}"
                         }
                     )
 

@@ -25,10 +25,10 @@ print(f"\n✅ Using Mahalla: {mahalla.name}")
 print(f"   District: {mahalla.district.name}")
 print(f"   Region: {mahalla.district.region.name}")
 
-# Test data - Admin format
+# Test data - Admin format with IDs
 test_data = {
-    "region": mahalla.district.region.name,
-    "district": mahalla.district.name,
+    "region": mahalla.district.region.id,  # ID not name
+    "district": mahalla.district.id,  # ID not name
     "mahalla": mahalla.id,
     "ownerFirstName": "hhh",
     "ownerLastName": "ggg",

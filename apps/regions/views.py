@@ -149,7 +149,7 @@ class MahallaViewSet(ModelViewSet):
         Authenticated users can list and retrieve mahallas for house creation.
         Only admins or government users can create, update, or delete.
         """
-        if self.action in ["list", "retrieve"]:
+        if self.action in ["list", "retrieve", "houses"]:
             return [IsAuthenticated()]
         return [IsAdminOrGov()]
 
@@ -157,3 +157,20 @@ class MahallaViewSet(ModelViewSet):
         if self.action in ["create", "update", "partial_update"]:
             return MahallaCreateSerializer
         return MahallaSerializer
+
+    @action(detail=True, methods=["get"], url_path="houses")
+    def houses(self, request, pk=None):
+        """
+        Get all houses in this mahalla.
+
+        GET: List all houses in this mahalla.
+        """
+        from apps.houses.models import House
+        from apps.houses.serializers import HouseSerializer
+
+        mahalla = self.get_object()
+        houses = House.objects.filter(mahalla=mahalla).select_related(
+            "owner", "mahalla__district__region"
+        )
+        serializer = HouseSerializer(houses, many=True)
+        return Response(serializer.data)

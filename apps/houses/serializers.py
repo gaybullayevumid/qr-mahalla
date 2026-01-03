@@ -220,31 +220,15 @@ class HouseCreateSerializer(serializers.Serializer):
         return instance
 
     def to_representation(self, instance):
-        """Return house data with full details."""
+        """Return house data in POST format."""
         return {
             "id": instance.id,
-            "owner": (
-                {
-                    "id": instance.owner.id,
-                    "phone": instance.owner.phone,
-                    "firstName": instance.owner.first_name,
-                    "lastName": instance.owner.last_name,
-                }
-                if instance.owner
-                else None
-            ),
-            "mahalla": {
-                "id": instance.mahalla.id,
-                "name": instance.mahalla.name,
-                "district": {
-                    "id": instance.mahalla.district.id,
-                    "name": instance.mahalla.district.name,
-                    "region": {
-                        "id": instance.mahalla.district.region.id,
-                        "name": instance.mahalla.district.region.name,
-                    },
-                },
-            },
+            "phone": instance.owner.phone if instance.owner else None,
+            "ownerFirstName": instance.owner.first_name if instance.owner else "",
+            "ownerLastName": instance.owner.last_name if instance.owner else "",
+            "region": instance.mahalla.district.region.name,
+            "district": instance.mahalla.district.name,
+            "mahalla": instance.mahalla.id,
             "address": instance.address,
             "houseNumber": instance.house_number,
             "createdAt": instance.created_at.isoformat(),

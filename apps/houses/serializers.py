@@ -133,6 +133,7 @@ class HouseCreateSerializer(serializers.Serializer):
         )
 
         phone = validated_data.get("phone")
+        user = None
 
         # If phone provided (admin format), find existing user
         if phone:
@@ -145,11 +146,13 @@ class HouseCreateSerializer(serializers.Serializer):
                     }
                 )
         else:
-            # Use current user from request context
+            # Use current user from request context if available
             request = self.context.get("request")
-            user = request.user if request else None
+            if request and hasattr(request, 'user') and request.user.is_authenticated:
+                user = request.user
+            # Otherwise, user remains None (house without owner)
 
-        # Create house
+        # Create house (owner can be None)
         house = House.objects.create(
             owner=user, mahalla=mahalla, address=address, house_number=house_number
         )

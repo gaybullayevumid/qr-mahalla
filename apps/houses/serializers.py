@@ -134,27 +134,16 @@ class HouseCreateSerializer(serializers.Serializer):
 
         phone = validated_data.get("phone")
 
-        # If phone provided (admin format), create/find user
+        # If phone provided (admin format), find existing user
         if phone:
-            first_name = validated_data.get("ownerFirstName", "")
-            last_name = validated_data.get("ownerLastName", "")
-
-            user, created = User.objects.get_or_create(
-                phone=phone,
-                defaults={
-                    "first_name": first_name,
-                    "last_name": last_name,
-                    "role": "client",
-                },
-            )
-
-            # Update user name if user exists but name was provided
-            if not created and (first_name or last_name):
-                if first_name:
-                    user.first_name = first_name
-                if last_name:
-                    user.last_name = last_name
-                user.save(update_fields=["first_name", "last_name"])
+            try:
+                user = User.objects.get(phone=phone)
+            except User.DoesNotExist:
+                raise serializers.ValidationError(
+                    {
+                        "phone": f"User with phone {phone} does not exist. Please create user first."
+                    }
+                )
         else:
             # Use current user from request context
             request = self.context.get("request")
@@ -193,30 +182,17 @@ class HouseCreateSerializer(serializers.Serializer):
 
         # Update owner if phone provided (admin format)
         if phone:
-            first_name = validated_data.get("ownerFirstName", "")
-            last_name = validated_data.get("ownerLastName", "")
-
-            user, created = User.objects.get_or_create(
-                phone=phone,
-                defaults={
-                    "first_name": first_name,
-                    "last_name": last_name,
-                    "role": "client",
-                },
-            )
-
-            # Update user name if user exists but name was provided
-            if not created and (first_name or last_name):
-                if first_name:
-                    user.first_name = first_name
-                if last_name:
-                    user.last_name = last_name
-                user.save(update_fields=["first_name", "last_name"])
-
-            instance.owner = user
+            try:
+                user = User.objects.get(phone=phone)
+                instance.owner = user
+            except User.DoesNotExist:
+                raise serializers.ValidationError(
+                    {
+                        "phone": f"User with phone {phone} does not exist. Please create user first."
+                    }
+                )
 
         instance.save()
-        return instance
         return instance
 
     def to_representation(self, instance):

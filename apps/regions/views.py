@@ -166,11 +166,11 @@ class MahallaViewSet(ModelViewSet):
         GET: List all houses in this mahalla.
         """
         from apps.houses.models import House
-        from apps.houses.serializers import HouseSerializer
+        from apps.houses.serializers import HouseCreateSerializer
 
         mahalla = self.get_object()
         houses = House.objects.filter(mahalla=mahalla).select_related(
             "owner", "mahalla__district__region"
         )
-        serializer = HouseSerializer(houses, many=True)
+        serializer = HouseCreateSerializer(houses, many=True)
         return Response(serializer.data)

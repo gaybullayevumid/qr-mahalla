@@ -1,7 +1,10 @@
 from django.db.models.signals import post_save
 from django.dispatch import receiver
 from .models import House
-from .services import send_house_registration_notification
+from .services import (
+    send_house_registration_notification,
+    send_agent_house_notification,
+)
 import logging
 
 logger = logging.getLogger(__name__)
@@ -11,10 +14,15 @@ logger = logging.getLogger(__name__)
 def house_post_save(sender, instance, created, **kwargs):
     """
     Send notification when a new house is created.
-    Skip QR code generation if created by agent.
+    Different notification for agent vs client created houses.
     """
-    if created and not instance.created_by_agent:
+    if created:
         try:
-            send_house_registration_notification(instance)
+            if instance.created_by_agent:
+                # Send agent house notification
+                send_agent_house_notification(instance)
+            else:
+                # Send regular house notification
+                send_house_registration_notification(instance)
         except Exception as e:
             logger.error(f"Failed to send house registration notification: {e}")

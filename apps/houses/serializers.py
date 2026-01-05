@@ -136,6 +136,14 @@ class HouseCreateSerializer(serializers.Serializer):
         user = None
         created_by_agent = False
 
+        # Check if request user is admin or agent
+        request = self.context.get("request")
+        request_user = None
+        if request and hasattr(request, "user") and request.user.is_authenticated:
+            request_user = request.user
+            if request_user.role in ["admin", "agent"]:
+                created_by_agent = True
+
         # If phone provided (admin format), try to find or create user
         if phone:
             try:
@@ -151,13 +159,10 @@ class HouseCreateSerializer(serializers.Serializer):
                     last_name=last_name,
                     role="client",
                 )
-            # Admin/Agent is creating house - mark it
-            created_by_agent = True
         else:
             # Use current user from request context if available
-            request = self.context.get("request")
-            if request and hasattr(request, "user") and request.user.is_authenticated:
-                user = request.user
+            if request_user:
+                user = request_user
             # Otherwise, user remains None (house without owner)
 
         # Create house (owner can be None, created_by_agent flag set)

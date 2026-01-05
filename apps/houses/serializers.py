@@ -135,18 +135,25 @@ class HouseCreateSerializer(serializers.Serializer):
         phone = validated_data.get("phone")
         user = None
 
-        # If phone provided (admin format), try to find existing user
+        # If phone provided (admin format), try to find or create user
         if phone:
             try:
                 user = User.objects.get(phone=phone)
             except User.DoesNotExist:
-                # User not found - create house without owner
-                # Owner can be assigned later
-                pass
+                # User not found - create new user with provided info
+                first_name = validated_data.get("ownerFirstName", "")
+                last_name = validated_data.get("ownerLastName", "")
+
+                user = User.objects.create(
+                    phone=phone,
+                    first_name=first_name,
+                    last_name=last_name,
+                    role="client",
+                )
         else:
             # Use current user from request context if available
             request = self.context.get("request")
-            if request and hasattr(request, 'user') and request.user.is_authenticated:
+            if request and hasattr(request, "user") and request.user.is_authenticated:
                 user = request.user
             # Otherwise, user remains None (house without owner)
 
@@ -185,11 +192,19 @@ class HouseCreateSerializer(serializers.Serializer):
         if phone:
             try:
                 user = User.objects.get(phone=phone)
-                instance.owner = user
             except User.DoesNotExist:
-                # User not found - keep current owner or set to None
-                # This allows updating house without changing owner
-                pass
+                # User not found - create new user with provided info
+                first_name = validated_data.get("ownerFirstName", "")
+                last_name = validated_data.get("ownerLastName", "")
+
+                user = User.objects.create(
+                    phone=phone,
+                    first_name=first_name,
+                    last_name=last_name,
+                    role="client",
+                )
+
+            instance.owner = user
 
         instance.save()
         return instance

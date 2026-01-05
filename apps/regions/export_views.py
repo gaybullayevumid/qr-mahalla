@@ -1,4 +1,5 @@
 from django.http import HttpResponse
+from django.conf import settings
 from rest_framework.views import APIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -6,6 +7,7 @@ from rest_framework import status
 from openpyxl import Workbook
 from openpyxl.styles import Font, Alignment, PatternFill
 from datetime import datetime
+import os
 
 from .models import Region, District, Mahalla
 from apps.houses.models import House
@@ -168,13 +170,31 @@ class ExportHousesView(APIView):
             adjusted_width = min(max_length + 2, 50)
             ws.column_dimensions[column_letter].width = adjusted_width
 
-        # Prepare response
-        response = HttpResponse(
-            content_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        )
+        # Save file to media/exports directory
         timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         filename = f"Xonadonlar_{export_name}_{timestamp}.xlsx"
-        response["Content-Disposition"] = f'attachment; filename="{filename}"'
 
-        wb.save(response)
-        return response
+        # Create exports directory if it doesn't exist
+        exports_dir = os.path.join(settings.MEDIA_ROOT, "exports")
+        os.makedirs(exports_dir, exist_ok=True)
+
+        # Save file
+        file_path = os.path.join(exports_dir, filename)
+        wb.save(file_path)
+
+        # Generate URL
+        file_url = f"{settings.MEDIA_URL}exports/{filename}"
+
+        # Build full URL if request is available
+        if request:
+            file_url = request.build_absolute_uri(file_url)
+
+        return Response(
+            {
+                "success": True,
+                "message": "Excel fayl muvaffaqiyatli yaratildi",
+                "file_url": file_url,
+                "filename": filename,
+            },
+            status=status.HTTP_200_OK,
+        )

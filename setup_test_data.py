@@ -54,12 +54,13 @@ for region_name in regions_data:
                     },
                 )
 
-                # Create house
+                # Create house - created by agent (no QR code needed)
                 house = House.objects.create(
                     owner=user,
                     mahalla=mahalla,
                     address=f"{mahalla_name}, {house_num}-ko'cha, {house_num}-uy",
                     house_number=str(house_num),
+                    created_by_agent=True,  # Agent created - no QR code
                 )
                 print(f"      House: {house.address} - Owner: {user.phone}")
 

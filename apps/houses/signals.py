@@ -11,8 +11,9 @@ logger = logging.getLogger(__name__)
 def house_post_save(sender, instance, created, **kwargs):
     """
     Send notification when a new house is created.
+    Skip QR code generation if created by agent.
     """
-    if created:
+    if created and not instance.created_by_agent:
         try:
             send_house_registration_notification(instance)
         except Exception as e:

@@ -32,6 +32,10 @@ class House(GapFillingIDMixin, models.Model):
     )
     address = models.CharField(max_length=255, verbose_name="Address")
 
+    created_by_agent = models.BooleanField(
+        default=False, verbose_name="Created by agent"
+    )
+
     created_at = models.DateTimeField(auto_now_add=True, verbose_name="Created at")
 
     class Meta:

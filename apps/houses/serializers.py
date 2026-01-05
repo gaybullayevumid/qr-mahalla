@@ -135,16 +135,14 @@ class HouseCreateSerializer(serializers.Serializer):
         phone = validated_data.get("phone")
         user = None
 
-        # If phone provided (admin format), find existing user
+        # If phone provided (admin format), try to find existing user
         if phone:
             try:
                 user = User.objects.get(phone=phone)
             except User.DoesNotExist:
-                raise serializers.ValidationError(
-                    {
-                        "phone": f"User with phone {phone} does not exist. Please create user first."
-                    }
-                )
+                # User not found - create house without owner
+                # Owner can be assigned later
+                pass
         else:
             # Use current user from request context if available
             request = self.context.get("request")
@@ -189,11 +187,9 @@ class HouseCreateSerializer(serializers.Serializer):
                 user = User.objects.get(phone=phone)
                 instance.owner = user
             except User.DoesNotExist:
-                raise serializers.ValidationError(
-                    {
-                        "phone": f"User with phone {phone} does not exist. Please create user first."
-                    }
-                )
+                # User not found - keep current owner or set to None
+                # This allows updating house without changing owner
+                pass
 
         instance.save()
         return instance

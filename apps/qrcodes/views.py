@@ -859,13 +859,16 @@ class BulkQRCodeGenerateView(APIView):
             with open(zip_path, "wb") as f:
                 f.write(zip_buffer.getvalue())
 
-            # Generate download URL
-            download_url = f"/media/qr_downloads/{zip_filename}"
+            # Generate absolute download URL (with domain)
+            download_url = request.build_absolute_uri(
+                f"/media/qr_downloads/{zip_filename}"
+            )
 
             return Response(
                 {
                     "download_url": download_url,
                     "count": count,
+                    "filename": zip_filename,
                     "message": "QR kodlar muvaffaqiyatli yaratildi",
                     "message_en": "QR codes generated successfully",
                 },
@@ -922,3 +925,70 @@ class QRCodeBulkListView(generics.ListAPIView):
                 pass
 
         return queryset
+
+
+class BulkQRCodeDownloadView(APIView):
+    """
+    Direct download endpoint for generated ZIP files.
+
+    Alternative to using media URL - provides direct file download.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request, filename):
+        """
+        Download ZIP file directly.
+
+        URL: /api/qrcodes/bulk/download/{filename}/
+        """
+        # Check admin permissions
+        user_role = getattr(request.user, "role", None)
+        if user_role not in ADMIN_ROLES:
+            return Response(
+                {
+                    "error": "Ruxsat yo'q.",
+                    "error_en": "Permission denied.",
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        # Security: Validate filename (prevent directory traversal)
+        if ".." in filename or "/" in filename or "\\" in filename:
+            return Response(
+                {
+                    "error": "Noto'g'ri fayl nomi.",
+                    "error_en": "Invalid filename.",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Build file path
+        zip_path = os.path.join(settings.MEDIA_ROOT, "qr_downloads", filename)
+
+        # Check if file exists
+        if not os.path.exists(zip_path):
+            return Response(
+                {
+                    "error": "Fayl topilmadi.",
+                    "error_en": "File not found.",
+                },
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # Return file as download
+        try:
+            response = FileResponse(
+                open(zip_path, "rb"), content_type="application/zip"
+            )
+            response["Content-Disposition"] = f'attachment; filename="{filename}"'
+            return response
+        except Exception as e:
+            return Response(
+                {
+                    "error": "Faylni yuklab olishda xatolik.",
+                    "error_en": "Error downloading file.",
+                    "detail": str(e),
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )

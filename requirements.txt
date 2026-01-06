@@ -6,7 +6,7 @@ charset-normalizer==3.4.4
 click==8.3.1
 colorama==0.4.6
 cryptography==46.0.3
-Django==6.0
+Django==5.2
 django-cors-headers==4.9.0
 djangorestframework==3.16.1
 djangorestframework_simplejwt==5.5.1

@@ -1,7 +1,12 @@
 from typing import Dict, Any, Optional
+import os
+import zipfile
+from io import BytesIO
 
 from django.db import transaction, IntegrityError
 from django.db.models import Q, Max
+from django.http import HttpResponse, FileResponse
+from django.conf import settings
 
 from rest_framework.views import APIView
 from rest_framework.response import Response
@@ -19,6 +24,7 @@ from .serializers import (
     QRCodeSerializer,
     QRCodeCreateSerializer,
     QRCodeClaimSerializer,
+    BulkQRCodeGenerateSerializer,
 )
 
 
@@ -776,3 +782,143 @@ class ClaimHouseView(APIView):
             },
             status=status.HTTP_500_INTERNAL_SERVER_ERROR,
         )
+
+
+class BulkQRCodeGenerateView(APIView):
+    """
+    Bulk QR code generation endpoint.
+
+    Generates multiple QR codes, creates a zip file, and returns download link.
+    Requires authentication and admin permissions.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        """
+        Generate multiple QR codes and return zip file.
+
+        Expected payload:
+        {
+            "count": 10  // Number of QR codes to generate
+        }
+
+        Returns:
+        {
+            "download_url": "/media/qr_downloads/qrcodes_123.zip",
+            "count": 10,
+            "message": "QR codes generated successfully"
+        }
+        """
+        # Check admin permissions
+        user_role = getattr(request.user, "role", None)
+        if user_role not in ADMIN_ROLES:
+            return Response(
+                {
+                    "error": "Ruxsat yo'q. Faqat admin foydalanuvchilar QR kod yaratishi mumkin.",
+                    "error_en": "Permission denied. Only admin users can generate QR codes.",
+                    "error_type": "permission_denied",
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        serializer = BulkQRCodeGenerateSerializer(data=request.data)
+        if not serializer.is_valid():
+            return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+        count = serializer.validated_data["count"]
+
+        try:
+            # Generate QR codes
+            qr_codes = []
+            with transaction.atomic():
+                for _ in range(count):
+                    qr_code = QRCode.objects.create()
+                    qr_codes.append(qr_code)
+
+            # Create zip file in memory
+            zip_buffer = BytesIO()
+            with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+                for qr in qr_codes:
+                    if qr.image:
+                        # Add QR code image to zip
+                        img_name = f"qr_{qr.uuid}.png"
+                        zip_file.writestr(img_name, qr.image.read())
+
+            # Save zip file to media folder
+            zip_buffer.seek(0)
+            zip_filename = (
+                f"qrcodes_{request.user.id}_{QRCode.objects.latest('id').id}.zip"
+            )
+            zip_path = os.path.join(settings.MEDIA_ROOT, "qr_downloads", zip_filename)
+
+            # Create directory if not exists
+            os.makedirs(os.path.dirname(zip_path), exist_ok=True)
+
+            # Write zip file
+            with open(zip_path, "wb") as f:
+                f.write(zip_buffer.getvalue())
+
+            # Generate download URL
+            download_url = f"/media/qr_downloads/{zip_filename}"
+
+            return Response(
+                {
+                    "download_url": download_url,
+                    "count": count,
+                    "message": "QR kodlar muvaffaqiyatli yaratildi",
+                    "message_en": "QR codes generated successfully",
+                },
+                status=status.HTTP_201_CREATED,
+            )
+
+        except Exception as e:
+            return Response(
+                {
+                    "error": "QR kod yaratishda xatolik yuz berdi.",
+                    "error_en": "Error occurred while generating QR codes.",
+                    "detail": str(e),
+                },
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            )
+
+
+class QRCodeBulkListView(generics.ListAPIView):
+    """
+    List recently created QR codes.
+
+    Returns paginated list of QR codes with optional filtering.
+    """
+
+    serializer_class = QRCodeSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        """Get QR codes based on user role."""
+        user_role = getattr(self.request.user, "role", None)
+
+        # Only admin users can view all QR codes
+        if user_role not in ADMIN_ROLES:
+            return QRCode.objects.none()
+
+        queryset = QRCode.objects.all().order_by("-created_at")
+
+        # Optional filtering by claimed status
+        is_claimed = self.request.query_params.get("is_claimed")
+        if is_claimed is not None:
+            if is_claimed.lower() == "true":
+                queryset = queryset.filter(house__owner__isnull=False)
+            elif is_claimed.lower() == "false":
+                queryset = queryset.filter(
+                    Q(house__isnull=True) | Q(house__owner__isnull=True)
+                )
+
+        # Limit to recent QR codes (optional limit parameter)
+        limit = self.request.query_params.get("limit")
+        if limit:
+            try:
+                queryset = queryset[: int(limit)]
+            except ValueError:
+                pass
+
+        return queryset

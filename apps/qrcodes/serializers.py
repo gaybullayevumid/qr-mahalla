@@ -5,6 +5,33 @@ from rest_framework import serializers
 from apps.qrcodes.models import QRCode
 
 
+class BulkQRCodeGenerateSerializer(serializers.Serializer):
+    """
+    Serializer for bulk QR code generation.
+
+    Validates the count of QR codes to generate.
+    """
+
+    count = serializers.IntegerField(
+        min_value=1,
+        max_value=1000,
+        required=True,
+        help_text="Number of QR codes to generate (1-1000)",
+    )
+
+    def validate_count(self, value):
+        """Validate count is within acceptable range."""
+        if value < 1:
+            raise serializers.ValidationError(
+                "Kamida 1 ta QR kod yaratish kerak. / At least 1 QR code must be generated."
+            )
+        if value > 1000:
+            raise serializers.ValidationError(
+                "Bir vaqtning o'zida maksimal 1000 ta QR kod yaratish mumkin. / Maximum 1000 QR codes can be generated at once."
+            )
+        return value
+
+
 class QRCodeSerializer(serializers.ModelSerializer):
     """
     QR code serializer with basic information.

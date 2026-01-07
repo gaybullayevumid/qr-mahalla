@@ -58,8 +58,19 @@ cover/
 # Django stuff:
 *.log
 local_settings.py
-# db.sqlite3
+db.sqlite3
 db.sqlite3-journal
+
+# Sensitive data and backups
+*.pem
+*.key
+*.p12
+data_backup.json
+*.bak
+*.backup
+
+# Logs directory
+logs/
 
 # Flask stuff:
 instance/

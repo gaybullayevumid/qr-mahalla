@@ -78,18 +78,9 @@ class AuthAPIView(APIView):
             )
 
             if not otp:
-                all_codes = PhoneOTP.objects.filter(phone=phone).order_by(
-                    "-created_at"
-                )[:3]
-                debug_info = [
-                    f"Code: {c.code}, Used: {c.is_used}, Created: {c.created_at}"
-                    for c in all_codes
-                ]
                 return Response(
                     {
                         "error": "Code is incorrect or already used",
-                        "debug": f"Looking for code '{code}' for phone '{phone}'",
-                        "recent_codes": debug_info if settings.DEBUG else None,
                     },
                     status=status.HTTP_400_BAD_REQUEST,
                 )

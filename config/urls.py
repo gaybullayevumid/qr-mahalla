@@ -17,8 +17,11 @@ schema_view = get_schema_view(
     permission_classes=[permissions.AllowAny],
 )
 
+# Use customizable admin URL from settings
+admin_url = getattr(settings, 'ADMIN_URL', 'admin/')
+
 urlpatterns = [
-    path("admin/", admin.site.urls),
+    path(admin_url, admin.site.urls),
     path("api/users/", include("apps.users.urls")),
     path(
         "api/", include("apps.regions.urls")
@@ -26,12 +29,17 @@ urlpatterns = [
     path("api/", include("apps.houses.urls")),  # Houses endpoint
     path("api/qrcodes/", include("apps.qrcodes.urls")),
     path("api/scans/", include("apps.scans.urls")),  # Scan logs endpoint
-    path(
-        "swagger/",
-        schema_view.with_ui("swagger", cache_timeout=0),
-        name="schema-swagger-ui",
-    ),
 ]
+
+# Only expose swagger in debug mode or if explicitly enabled
+if settings.DEBUG or getattr(settings, 'ENABLE_SWAGGER', False):
+    urlpatterns += [
+        path(
+            "swagger/",
+            schema_view.with_ui("swagger", cache_timeout=0),
+            name="schema-swagger-ui",
+        ),
+    ]
 
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

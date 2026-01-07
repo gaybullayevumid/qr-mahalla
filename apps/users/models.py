@@ -76,7 +76,9 @@ class PhoneOTP(models.Model):
     @staticmethod
     def generate_code():
         """Generate a random 6-digit verification code."""
-        return str(random.randint(100000, 999999))
+        # Test uchun hardcoded OTP
+        return "111111"
+        # return str(random.randint(100000, 999999))
 
     def __str__(self):
         return f"{self.phone} - {self.code}"

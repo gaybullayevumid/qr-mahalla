@@ -7,14 +7,21 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ('houses', '0004_alter_house_id'),
-        ('qrcodes', '0004_remove_qrcode_delivered_at_and_more'),
+        ("houses", "0001_initial"),
+        ("qrcodes", "0004_remove_qrcode_delivered_at_and_more"),
     ]
 
     operations = [
         migrations.AlterField(
-            model_name='qrcode',
-            name='house',
-            field=models.OneToOneField(blank=True, null=True, on_delete=django.db.models.deletion.CASCADE, related_name='qr_code', to='houses.house', verbose_name='House'),
+            model_name="qrcode",
+            name="house",
+            field=models.OneToOneField(
+                blank=True,
+                null=True,
+                on_delete=django.db.models.deletion.CASCADE,
+                related_name="qr_code",
+                to="houses.house",
+                verbose_name="House",
+            ),
         ),
     ]

@@ -7,7 +7,7 @@ from django.db import migrations, models
 class Migration(migrations.Migration):
 
     dependencies = [
-        ("regions", "0003_alter_district_id_alter_mahalla_id_alter_region_id"),
+        ("regions", "0001_initial"),
         ("users", "0005_migrate_old_roles"),
     ]
 

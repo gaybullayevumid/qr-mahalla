@@ -34,7 +34,7 @@ class Migration(migrations.Migration):
 
     dependencies = [
         ("qrcodes", "0005_alter_qrcode_house"),
-        ("houses", "0004_alter_house_id"),  # Ensure Houses table exists
+        ("houses", "0001_initial"),  # Ensure Houses table exists
     ]
 
     operations = [

@@ -22,6 +22,14 @@ TELEGRAM_BOT_TOKEN = os.getenv(
 TELEGRAM_BOT_USERNAME = os.getenv("TELEGRAM_BOT_USERNAME", "qrmahallabot")
 TELEGRAM_CHAT_IDS = os.getenv("TELEGRAM_CHAT_IDS", "8055309446,5323321097").split(",")
 
+# Eskiz SMS Settings
+ESKIZ_EMAIL = os.getenv("ESKIZ_EMAIL", "")
+ESKIZ_PASSWORD = os.getenv("ESKIZ_PASSWORD", "")
+ESKIZ_API_URL = "https://notify.eskiz.uz/api"
+ESKIZ_FROM = os.getenv(
+    "ESKIZ_FROM", "4546"
+)  # Sizning Eskiz da ro'yxatdan o'tgan raqamingiz
+
 INSTALLED_APPS = [
     "corsheaders",
     "django.contrib.admin",

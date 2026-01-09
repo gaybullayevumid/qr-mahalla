@@ -609,11 +609,13 @@ class ClaimHouseView(APIView):
                     # Lock ONLY the QR code row (no JOINs to avoid PostgreSQL FOR UPDATE error)
                     # select_for_update() cannot be used with nullable outer joins
                     qr = QRCode.objects.select_for_update().get(uuid=uuid)
-                    
+
                     # Access related objects AFTER lock is acquired (separate queries)
                     # This avoids "FOR UPDATE cannot be applied to nullable side of outer join" error
                     house = qr.house  # Triggers separate query if needed
-                    owner = house.owner if house else None  # Triggers separate query if needed
+                    owner = (
+                        house.owner if house else None
+                    )  # Triggers separate query if needed
 
                     logger.info(
                         f"QR {uuid} - has_house={house is not None}, "

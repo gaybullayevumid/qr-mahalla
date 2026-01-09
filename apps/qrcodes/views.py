@@ -606,26 +606,28 @@ class ClaimHouseView(APIView):
                 with transaction.atomic():
                     logger.info(f"Claim attempt {attempt + 1}/{max_attempts}")
 
-                    # Lock the QR code row to prevent race conditions
-                    qr = (
-                        QRCode.objects.select_for_update()
-                        .select_related("house", "house__owner")
-                        .get(uuid=uuid)
-                    )
+                    # Lock ONLY the QR code row (no JOINs to avoid PostgreSQL FOR UPDATE error)
+                    # select_for_update() cannot be used with nullable outer joins
+                    qr = QRCode.objects.select_for_update().get(uuid=uuid)
+                    
+                    # Access related objects AFTER lock is acquired (separate queries)
+                    # This avoids "FOR UPDATE cannot be applied to nullable side of outer join" error
+                    house = qr.house  # Triggers separate query if needed
+                    owner = house.owner if house else None  # Triggers separate query if needed
 
                     logger.info(
-                        f"QR {uuid} - has_house={qr.house is not None}, "
-                        f"has_owner={qr.house.owner if qr.house else None}"
+                        f"QR {uuid} - has_house={house is not None}, "
+                        f"has_owner={owner}"
                     )
 
                     # Check if already claimed
-                    if qr.house and qr.house.owner:
-                        if qr.house.owner == user:
+                    if house and owner:
+                        if owner == user:
                             return Response(
                                 {
                                     "error": "Siz allaqachon bu uyni claim qilgansiz.",
                                     "error_en": "You have already claimed this house.",
-                                    "house_id": qr.house.id,
+                                    "house_id": house.id,
                                     "is_reclaim_attempt": True,
                                 },
                                 status=status.HTTP_400_BAD_REQUEST,
@@ -634,7 +636,7 @@ class ClaimHouseView(APIView):
                             {
                                 "error": "Bu uy allaqachon boshqa foydalanuvchi tomonidan claim qilingan.",
                                 "error_en": "This house is already claimed by another user.",
-                                "owner": qr.house.owner.phone,
+                                "owner": owner.phone,
                             },
                             status=status.HTTP_400_BAD_REQUEST,
                         )
@@ -652,15 +654,14 @@ class ClaimHouseView(APIView):
                         f"scanned QR: {user.scanned_qr_code}"
                     )
 
-                    if qr.house:
+                    if house:
                         # Update existing house
-                        logger.info(f"Updating existing house {qr.house.id}")
-                        qr.house.address = validated_data["address"]
-                        qr.house.house_number = validated_data["house_number"]
-                        qr.house.mahalla = mahalla
-                        qr.house.owner = user
-                        qr.house.save()
-                        house = qr.house
+                        logger.info(f"Updating existing house {house.id}")
+                        house.address = validated_data["address"]
+                        house.house_number = validated_data["house_number"]
+                        house.mahalla = mahalla
+                        house.owner = user
+                        house.save()
                     else:
                         # Create new house with random 10-digit ID
                         # Orphaned house_ids already cleaned up before transaction

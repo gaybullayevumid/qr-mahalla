@@ -2,7 +2,6 @@ from django.urls import path
 from .views import (
     ScanQRCodeView,
     ClaimHouseView,
-    AgentAssignHouseView,
     QRCodeListAPIView,
     QRCodeCreateAPIView,
     QRCodeDetailAPIView,
@@ -26,5 +25,4 @@ urlpatterns = [
     path("<str:uuid>/", QRCodeDetailAPIView.as_view(), name="qr-detail"),
     path("scan/<str:uuid>/", ScanQRCodeView.as_view(), name="qr-scan"),
     path("claim/<str:uuid>/", ClaimHouseView.as_view(), name="qr-claim"),
-    path("agent-assign/<str:uuid>/", AgentAssignHouseView.as_view(), name="agent-assign-house"),
 ]

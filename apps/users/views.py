@@ -178,6 +178,22 @@ class AuthAPIView(APIView):
                 },
             )
 
+            # Prepare mahalla information
+            mahalla_detail = None
+            if user.mahalla:
+                mahalla_detail = {
+                    "id": user.mahalla.id,
+                    "name": user.mahalla.name,
+                    "district": {
+                        "id": user.mahalla.district.id,
+                        "name": user.mahalla.district.name,
+                    },
+                    "region": {
+                        "id": user.mahalla.district.region.id,
+                        "name": user.mahalla.district.region.name,
+                    },
+                }
+
             response_data = {
                 "access": str(refresh.access_token),
                 "refresh": str(refresh),
@@ -188,6 +204,8 @@ class AuthAPIView(APIView):
                     "first_name": user.first_name,
                     "last_name": user.last_name,
                     "is_verified": user.is_verified,
+                    "mahalla": user.mahalla.id if user.mahalla else None,
+                    "mahalla_detail": mahalla_detail,
                     "houses": house_list,
                 },
                 "available_roles": available_roles,

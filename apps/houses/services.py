@@ -24,19 +24,23 @@ def send_agent_house_notification(house):
         if house.owner and house.owner.phone:
             try:
                 sms_service = EskizSMSService()
-                message = f"Sizning uyingiz QR MAHALLA tizimiga qo'shildi. Manzil: {house.address}"
-
+                # Simple message matching approved template style
+                message = f"Sizning uyingiz QR MAHALLA tizimiga qo'shildi."
+                
+                logger.info(f"Attempting to send SMS to house owner {house.owner.phone} for house ID: {house.id}")
                 sms_sent = sms_service.send_sms(house.owner.phone, message)
                 if sms_sent:
                     logger.info(
-                        f"SMS sent to house owner {house.owner.phone} for house ID: {house.id}"
+                        f"✅ SMS successfully sent to house owner {house.owner.phone} for house ID: {house.id}"
                     )
                 else:
                     logger.warning(
-                        f"Failed to send SMS to house owner {house.owner.phone} for house ID: {house.id}"
+                        f"❌ Failed to send SMS to house owner {house.owner.phone} for house ID: {house.id}"
                     )
             except Exception as e:
-                logger.error(f"Error sending SMS to house owner: {e}")
+                logger.error(f"💥 Error sending SMS to house owner: {e}")
+        else:
+            logger.info(f"⚠️ No owner or phone number for house ID: {house.id}. SMS not sent.")
 
         # Continue with existing Telegram notification logic
         bot_token = settings.TELEGRAM_BOT_TOKEN

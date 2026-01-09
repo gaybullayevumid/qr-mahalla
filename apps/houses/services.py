@@ -2,6 +2,7 @@ import logging
 import requests
 from django.conf import settings
 from datetime import datetime
+from apps.users.services import EskizSMSService
 
 logger = logging.getLogger(__name__)
 
@@ -9,6 +10,7 @@ logger = logging.getLogger(__name__)
 def send_agent_house_notification(house):
     """
     Send notification when agent adds a house to the database.
+    Sends both Telegram notification and SMS to owner if phone exists.
 
     Args:
         house: House instance that was just created by agent
@@ -18,6 +20,21 @@ def send_agent_house_notification(house):
               False otherwise
     """
     try:
+        # Send SMS to owner if phone exists
+        if house.owner and house.owner.phone:
+            try:
+                sms_service = EskizSMSService()
+                message = f"Sizning uyingiz QR MAHALLA tizimiga qo'shildi. Manzil: {house.address}"
+                
+                sms_sent = sms_service.send_sms(house.owner.phone, message)
+                if sms_sent:
+                    logger.info(f"SMS sent to house owner {house.owner.phone} for house ID: {house.id}")
+                else:
+                    logger.warning(f"Failed to send SMS to house owner {house.owner.phone} for house ID: {house.id}")
+            except Exception as e:
+                logger.error(f"Error sending SMS to house owner: {e}")
+        
+        # Continue with existing Telegram notification logic
         bot_token = settings.TELEGRAM_BOT_TOKEN
 
         # Get region, district, mahalla names

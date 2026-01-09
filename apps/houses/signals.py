@@ -17,14 +17,20 @@ def house_post_save(sender, instance, created, **kwargs):
     Different notification for agent vs client created houses.
     """
     if created:
-        logger.info(f"🏠 New house created: ID={instance.id}, created_by_agent={instance.created_by_agent}, owner={instance.owner}")
+        logger.info(
+            f"🏠 New house created: ID={instance.id}, created_by_agent={instance.created_by_agent}, owner={instance.owner}"
+        )
         try:
             if instance.created_by_agent:
-                logger.info(f"📨 Sending agent house notification for house ID: {instance.id}")
+                logger.info(
+                    f"📨 Sending agent house notification for house ID: {instance.id}"
+                )
                 # Send agent house notification
                 send_agent_house_notification(instance)
             else:
-                logger.info(f"📨 Sending regular house notification for house ID: {instance.id}")
+                logger.info(
+                    f"📨 Sending regular house notification for house ID: {instance.id}"
+                )
                 # Send regular house notification
                 send_house_registration_notification(instance)
         except Exception as e:

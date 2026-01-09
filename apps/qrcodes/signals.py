@@ -16,6 +16,7 @@ MINIMUM_UNCLAIMED_QRCODES = 10  # Maintain 10 unclaimed QR codes
 def create_qr_code_for_house(sender, instance, created, **kwargs):
     """
     Automatically create QR code when a new house is created.
+    DISABLED: Admin creates QR codes manually now.
 
     Args:
         sender: Model class (House)
@@ -23,8 +24,10 @@ def create_qr_code_for_house(sender, instance, created, **kwargs):
         created: Boolean indicating if this is a new object
         **kwargs: Additional keyword arguments
     """
-    if created:
-        QRCode.objects.create(house=instance)
+    # Disabled - admin creates QR codes manually
+    pass
+    # if created:
+    #     QRCode.objects.create(house=instance)
 
 
 @receiver(post_save, sender=House)

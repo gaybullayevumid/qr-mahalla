@@ -108,5 +108,5 @@ def maintain_unclaimed_qrcodes(sender, instance, created, **kwargs):
 
     #     logger.info(
     #         f"Created {qrcodes_needed} new unclaimed QR codes to maintain "
-            f"minimum of {MINIMUM_UNCLAIMED_QRCODES}. Current unclaimed: {unclaimed_count + qrcodes_needed}"
-        )
+    #         f"minimum of {MINIMUM_UNCLAIMED_QRCODES}. Current unclaimed: {unclaimed_count + qrcodes_needed}"
+    #     )

@@ -4,6 +4,7 @@ from django.utils import timezone
 from django.contrib.auth.models import AbstractBaseUser, PermissionsMixin
 from django.conf import settings
 from .managers import UserManager
+from .models_sms import SMSLog
 
 
 class User(AbstractBaseUser, PermissionsMixin):

@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.permissions import IsAuthenticated, AllowAny
 from django.conf import settings
+import logging
 
 from rest_framework_simplejwt.tokens import RefreshToken
 from rest_framework_simplejwt.views import TokenRefreshView as BaseTokenRefreshView
@@ -15,7 +16,14 @@ from .serializers import (
     UserCreateUpdateSerializer,
     UserMinimalSerializer,
 )
-from .services import send_sms
+from .services import send_sms, send_registration_success_sms
+from .sms_utils import (
+    send_verification_code,
+    verify_code,
+    notify_new_user_registered,
+)
+
+logger = logging.getLogger(__name__)
 
 
 def get_client_ip(request):
@@ -48,12 +56,10 @@ class AuthAPIView(APIView):
             code = code.strip()
 
         if not code:
-            PhoneOTP.objects.filter(phone=phone, is_used=False).update(is_used=True)
+            # Tasdiqlash kodini yuborish (yangi utility funksiya ishlatish)
+            result = send_verification_code(phone)
 
-            new_code = PhoneOTP.generate_code()
-            PhoneOTP.objects.create(phone=phone, code=new_code)
-            try:
-                send_sms(phone, new_code)
+            if result["success"]:
                 return Response(
                     {
                         "message": "SMS code sent",
@@ -62,47 +68,23 @@ class AuthAPIView(APIView):
                     },
                     status=status.HTTP_200_OK,
                 )
-            except Exception as e:
+            else:
                 return Response(
-                    {"error": "Error sending SMS"},
+                    {"error": result["message"]},
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR,
                 )
 
         else:
-            phone = phone.strip()
-            code = code.strip()
-            otp = (
-                PhoneOTP.objects.filter(phone=phone, code=code, is_used=False)
-                .order_by("-created_at")
-                .first()
-            )
+            # Kodni tekshirish (yangi utility funksiya ishlatish)
+            verification_result = verify_code(phone, code)
 
-            if not otp:
+            if not verification_result["valid"]:
                 return Response(
-                    {
-                        "error": "Code is incorrect or already used",
-                    },
+                    {"error": verification_result["message"]},
                     status=status.HTTP_400_BAD_REQUEST,
                 )
 
-            if otp.is_used:
-                return Response(
-                    {
-                        "error": "This code has already been used. Please request a new code"
-                    },
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-            if otp.is_expired():
-                otp.is_used = True
-                otp.save()
-                return Response(
-                    {"error": "Code has expired. Please request a new code"},
-                    status=status.HTTP_400_BAD_REQUEST,
-                )
-
-            otp.is_used = True
-            otp.save()
+            # Kod to'g'ri - user yaratish yoki topish
             user, created = User.objects.get_or_create(
                 phone=phone,
                 defaults={
@@ -114,6 +96,9 @@ class AuthAPIView(APIView):
             if not created:
                 user.is_verified = True
                 user.save()
+            else:
+                # Yangi foydalanuvchi ro'yxatdan o'tganda SMS yuborish
+                notify_new_user_registered(phone)
 
             device_id = request.data.get("device_id", "unknown")
             device_name = request.data.get("device_name", "")
@@ -548,3 +533,90 @@ class UserViewSet(ModelViewSet):
             )
 
         return super().partial_update(request, *args, **kwargs)
+
+
+class SMSLogViewSet(ModelViewSet):
+    """
+    SMS log view set.
+    Admin va gov foydalanuvchilari barcha SMS loglarni ko'rishi mumkin.
+    """
+
+    from .models_sms import SMSLog
+    from .serializers_sms import SMSLogSerializer
+
+    queryset = SMSLog.objects.all()
+    serializer_class = SMSLogSerializer
+    permission_classes = [IsAuthenticated]
+    http_method_names = ["get", "head", "options"]  # Faqat o'qish uchun
+
+    def get_queryset(self):
+        """Filter SMS logs based on user role."""
+        # Swagger uchun
+        if getattr(self, "swagger_fake_view", False):
+            return self.queryset.none()
+
+        user = self.request.user
+        role = getattr(user, "role", None)
+
+        # Admin va gov barcha loglarni ko'radi
+        if role in ["admin", "gov"]:
+            return self.queryset.select_related("user")
+
+        # Boshqa foydalanuvchilar faqat o'z loglarini ko'radi
+        return self.queryset.filter(phone=user.phone).select_related("user")
+
+
+class SMSStatisticsAPIView(APIView):
+    """
+    SMS statistikasi API.
+    Faqat admin va gov foydalanuvchilari uchun.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        """Get SMS statistics"""
+        user = request.user
+        role = getattr(user, "role", None)
+
+        # Faqat admin va gov ko'rishi mumkin
+        if role not in ["admin", "gov"]:
+            return Response(
+                {"error": "Sizda bu ma'lumotni ko'rish huquqi yo'q"},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        from .models_sms import SMSLog
+        from django.db.models import Count, Q
+
+        # Umumiy statistika
+        total_sms = SMSLog.objects.count()
+        sent_sms = SMSLog.objects.filter(status="sent").count()
+        failed_sms = SMSLog.objects.filter(status="failed").count()
+        pending_sms = SMSLog.objects.filter(status="pending").count()
+
+        # SMS turlari bo'yicha
+        verification_sms = SMSLog.objects.filter(sms_type="verification").count()
+        registration_sms = SMSLog.objects.filter(sms_type="registration").count()
+        qr_scan_sms = SMSLog.objects.filter(sms_type="qr_scan").count()
+        notification_sms = SMSLog.objects.filter(sms_type="notification").count()
+
+        # Success rate
+        success_rate = (sent_sms / total_sms * 100) if total_sms > 0 else 0
+
+        data = {
+            "total_sms": total_sms,
+            "sent_sms": sent_sms,
+            "failed_sms": failed_sms,
+            "pending_sms": pending_sms,
+            "verification_sms": verification_sms,
+            "registration_sms": registration_sms,
+            "qr_scan_sms": qr_scan_sms,
+            "notification_sms": notification_sms,
+            "success_rate": round(success_rate, 2),
+        }
+
+        from .serializers_sms import SMSStatisticsSerializer
+
+        serializer = SMSStatisticsSerializer(data)
+        return Response(serializer.data)

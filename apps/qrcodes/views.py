@@ -138,6 +138,17 @@ def _log_qr_scan(request: Request, qr: QRCode) -> None:
         request.user.scanned_qr_code = qr.uuid
         request.user.save(update_fields=["scanned_qr_code"])
 
+        # QR kod skanerlanganda SMS yuborish
+        try:
+            from apps.users.services import send_qr_scan_sms
+
+            send_qr_scan_sms(request.user.phone, qr.uuid)
+        except Exception as e:
+            import logging
+
+            logger = logging.getLogger(__name__)
+            logger.warning(f"QR kod skaner SMS yuborishda xatolik: {e}")
+
 
 def _get_unclaimed_response(qr: QRCode, user_role: str) -> Dict[str, Any]:
     """

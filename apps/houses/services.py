@@ -24,8 +24,8 @@ def send_agent_house_notification(house):
         if house.owner and house.owner.phone:
             try:
                 sms_service = EskizSMSService()
-                # Simple message matching approved template style
-                message = f"Sizning uyingiz QR MAHALLA tizimiga qo'shildi."
+                # Using approved Eskiz template - same as registration success
+                message = "Siz QR MAHALLA tizimida muvaffaqiyatli ro'yxatdan o'tdingiz."
 
                 logger.info(
                     f"Attempting to send SMS to house owner {house.owner.phone} for house ID: {house.id}"

@@ -698,6 +698,7 @@ class ClaimHouseView(APIView):
                     # Send SMS to user after successful house claim
                     try:
                         from apps.users.services import EskizSMSService
+
                         sms_service = EskizSMSService()
                         message = "Siz QR MAHALLA tizimida muvaffaqiyatli ro'yxatdan o'tdingiz."
                         sms_service.send_sms(user.phone, message)

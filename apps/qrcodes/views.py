@@ -695,6 +695,16 @@ class ClaimHouseView(APIView):
                         qr=qr, scanned_by=user, ip_address=get_client_ip(request)
                     )
 
+                    # Send SMS to user after successful house claim
+                    try:
+                        from apps.users.services import EskizSMSService
+                        sms_service = EskizSMSService()
+                        message = "Siz QR MAHALLA tizimida muvaffaqiyatli ro'yxatdan o'tdingiz."
+                        sms_service.send_sms(user.phone, message)
+                        logger.info(f"SMS sent to {user.phone} after house claim")
+                    except Exception as e:
+                        logger.warning(f"Failed to send SMS after house claim: {e}")
+
                     # Success! Return response
                     return Response(
                         {

@@ -96,9 +96,7 @@ class AuthAPIView(APIView):
             if not created:
                 user.is_verified = True
                 user.save()
-            else:
-                # Yangi foydalanuvchi ro'yxatdan o'tganda SMS yuborish
-                notify_new_user_registered(phone)
+            # SMS removed from registration - will be sent after house claim
 
             device_id = request.data.get("device_id", "unknown")
             device_name = request.data.get("device_name", "")

@@ -107,7 +107,9 @@ class AgentCreateUserSerializer(serializers.Serializer):
     first_name = serializers.CharField(max_length=100, required=True)
     last_name = serializers.CharField(max_length=100, required=True)
     address = serializers.CharField(max_length=255, required=True)
-    house_number = serializers.CharField(max_length=50, required=False, allow_blank=True, default="")
+    house_number = serializers.CharField(
+        max_length=50, required=False, allow_blank=True, default=""
+    )
     mahalla = serializers.IntegerField(required=True)
 
     def validate_phone(self, value):
@@ -115,13 +117,18 @@ class AgentCreateUserSerializer(serializers.Serializer):
         import re
         from apps.users.models import User
 
-        # Remove all non-digit characters
-        phone = re.sub(r'\D', '', value)
-        
+        # Remove spaces and other characters, but keep + at the beginning
+        phone = value.strip()
+        phone = re.sub(r"[\s\-\(\)]", "", phone)  # Remove spaces, dashes, parentheses
+
+        # Ensure phone starts with + if it has digits
+        if phone and not phone.startswith("+"):
+            phone = "+" + phone
+
         # Check if phone number already exists
         if User.objects.filter(phone=phone).exists():
             raise serializers.ValidationError(
                 "Bu telefon raqami allaqachon ro'yxatdan o'tgan. / This phone number is already registered."
             )
-        
+
         return phone

@@ -20,27 +20,35 @@ def send_agent_house_notification(house):
               False otherwise
     """
     try:
-        # Send SMS to owner if phone exists
+        # Send SMS to owner if phone exists AND owner is a client (not agent/admin)
         if house.owner and house.owner.phone:
-            try:
-                sms_service = EskizSMSService()
-                # Using approved Eskiz template - same as registration success
-                message = "Siz QR MAHALLA tizimida muvaffaqiyatli ro'yxatdan o'tdingiz."
-
+            # Don't send SMS if owner is agent or admin
+            if house.owner.role in ["agent", "admin"]:
                 logger.info(
-                    f"Attempting to send SMS to house owner {house.owner.phone} for house ID: {house.id}"
+                    f"⚠️ House owner is {house.owner.role} - SMS not sent for house ID: {house.id}"
                 )
-                sms_sent = sms_service.send_sms(house.owner.phone, message)
-                if sms_sent:
+            else:
+                try:
+                    sms_service = EskizSMSService()
+                    # Using approved Eskiz template - same as registration success
+                    message = (
+                        "Siz QR MAHALLA tizimida muvaffaqiyatli ro'yxatdan o'tdingiz."
+                    )
+
                     logger.info(
-                        f"✅ SMS successfully sent to house owner {house.owner.phone} for house ID: {house.id}"
+                        f"Attempting to send SMS to house owner {house.owner.phone} for house ID: {house.id}"
                     )
-                else:
-                    logger.warning(
-                        f"❌ Failed to send SMS to house owner {house.owner.phone} for house ID: {house.id}"
-                    )
-            except Exception as e:
-                logger.error(f"💥 Error sending SMS to house owner: {e}")
+                    sms_sent = sms_service.send_sms(house.owner.phone, message)
+                    if sms_sent:
+                        logger.info(
+                            f"✅ SMS successfully sent to house owner {house.owner.phone} for house ID: {house.id}"
+                        )
+                    else:
+                        logger.warning(
+                            f"❌ Failed to send SMS to house owner {house.owner.phone} for house ID: {house.id}"
+                        )
+                except Exception as e:
+                    logger.error(f"💥 Error sending SMS to house owner: {e}")
         else:
             logger.info(
                 f"⚠️ No owner or phone number for house ID: {house.id}. SMS not sent."

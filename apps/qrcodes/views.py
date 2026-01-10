@@ -25,6 +25,7 @@ from .serializers import (
     QRCodeCreateSerializer,
     QRCodeClaimSerializer,
     BulkQRCodeGenerateSerializer,
+    AgentCreateUserSerializer,
 )
 
 
@@ -32,6 +33,7 @@ ADMIN_ROLES = ["admin", "gov", "leader"]
 ANONYMOUS_ROLE = "anonymous"
 CLIENT_ROLE = "client"
 LEADER_ROLE = "leader"
+AGENT_ROLE = "agent"
 
 
 def _get_location_data(house) -> Dict[str, Dict[str, Any]]:
@@ -1017,3 +1019,219 @@ class BulkQRCodeDownloadView(APIView):
                 },
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
+
+class AgentClaimHouseView(APIView):
+    """
+    Agent endpoint to create a new user and claim house.
+
+    POST: Agent creates a new user and associates them with a house.
+
+    This endpoint allows agents to:
+    1. Create a new user account with phone number
+    2. Create a house in the specified mahalla
+    3. Associate the house with the new user
+    4. Link QR code to the house
+
+    The user can later update their information themselves.
+
+    Required permissions: User must be authenticated as agent.
+    """
+
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request: Request, uuid: str) -> Response:
+        """Handle agent claim request to create user and associate house."""
+        import logging
+        import random
+
+        logger = logging.getLogger(__name__)
+
+        # Check if user is an agent
+        if not hasattr(request.user, "role") or request.user.role != AGENT_ROLE:
+            return Response(
+                {
+                    "error": "Faqat agent ushbu amalni bajarishi mumkin.",
+                    "error_en": "Only agents can perform this action.",
+                },
+                status=status.HTTP_403_FORBIDDEN,
+            )
+
+        logger.info(
+            f"Agent claim request for QR {uuid} from agent {request.user.phone}"
+        )
+
+        # Validate input data
+        serializer = AgentCreateUserSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+
+        validated_data = serializer.validated_data
+        logger.info(f"Agent claim data: {validated_data}")
+
+        # Check if QR code exists
+        try:
+            qr = QRCode.objects.select_related("house", "house__owner").get(uuid=uuid)
+        except QRCode.DoesNotExist:
+            return Response(
+                {"error": "QR kod topilmadi.", "error_en": "QR code not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # Check if QR code is already claimed
+        if qr.house and qr.house.owner:
+            return Response(
+                {
+                    "error": "Bu QR kod allaqachon claim qilingan.",
+                    "error_en": "This QR code is already claimed.",
+                },
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+
+        # Verify mahalla exists
+        try:
+            mahalla = Mahalla.objects.get(id=validated_data["mahalla"])
+        except Mahalla.DoesNotExist:
+            return Response(
+                {"error": "Mahalla topilmadi.", "error_en": "Mahalla not found"},
+                status=status.HTTP_404_NOT_FOUND,
+            )
+
+        # Cleanup orphaned house_ids
+        logger.info("Pre-agent-claim cleanup: checking for orphaned house_ids")
+        try:
+            from apps.houses.models import House
+
+            existing_house_ids = set(House.objects.values_list("id", flat=True))
+            used_house_ids_in_qr = set(
+                QRCode.objects.filter(house_id__isnull=False).values_list(
+                    "house_id", flat=True
+                )
+            )
+            orphaned_ids = used_house_ids_in_qr - existing_house_ids
+
+            if orphaned_ids:
+                logger.warning(f"Found {len(orphaned_ids)} orphaned house_ids")
+                cleaned = QRCode.objects.filter(house_id__in=orphaned_ids).update(
+                    house_id=None
+                )
+                logger.info(f"Successfully cleaned up {cleaned} orphaned house_ids")
+        except Exception as e:
+            logger.error(f"Error during orphaned house_ids cleanup: {str(e)}")
+
+        # Retry logic for house creation with transaction
+        max_retries = 50
+        for attempt in range(max_retries):
+            try:
+                with transaction.atomic():
+                    # Create new user
+                    from apps.users.models import User
+
+                    new_user = User.objects.create(
+                        phone=validated_data["phone"],
+                        first_name=validated_data["first_name"],
+                        last_name=validated_data["last_name"],
+                        role=CLIENT_ROLE,  # New user is a client by default
+                        is_verified=False,  # User will verify later
+                    )
+                    logger.info(f"Created new user with phone: {new_user.phone}")
+
+                    # Create house
+                    new_house = House.objects.create(
+                        owner=new_user,
+                        mahalla=mahalla,
+                        address=validated_data["address"],
+                        house_number=validated_data.get("house_number", ""),
+                        created_by_agent=True,
+                    )
+                    logger.info(f"Created house with ID: {new_house.id}")
+
+                    # Update QR code to link to house
+                    qr.house = new_house
+                    qr.save(update_fields=["house"])
+
+                    logger.info(
+                        f"Successfully claimed QR {uuid} for new user {new_user.phone} and house {new_house.id}"
+                    )
+
+                    return Response(
+                        {
+                            "status": "success",
+                            "message": "Yangi user yaratildi va uy birikitirildi.",
+                            "message_en": "New user created and house associated successfully.",
+                            "user": {
+                                "id": new_user.id,
+                                "phone": new_user.phone,
+                                "first_name": new_user.first_name,
+                                "last_name": new_user.last_name,
+                            },
+                            "house": {
+                                "id": new_house.id,
+                                "address": new_house.address,
+                                "house_number": new_house.house_number,
+                                "mahalla": {
+                                    "id": mahalla.id,
+                                    "name": mahalla.name,
+                                },
+                            },
+                            "qr": {
+                                "uuid": qr.uuid,
+                                "qr_url": qr.get_qr_url(),
+                            },
+                        },
+                        status=status.HTTP_201_CREATED,
+                    )
+
+            except IntegrityError as e:
+                error_msg = str(e).lower()
+
+                if "unique constraint" in error_msg and "phone" in error_msg:
+                    # This shouldn't happen as we validated phone uniqueness
+                    logger.error(
+                        f"Phone number already exists: {validated_data['phone']}"
+                    )
+                    return Response(
+                        {
+                            "error": "Bu telefon raqami allaqachon ro'yxatdan o'tgan.",
+                            "error_en": "This phone number is already registered.",
+                        },
+                        status=status.HTTP_400_BAD_REQUEST,
+                    )
+
+                # House ID conflict - retry
+                if attempt < max_retries - 1:
+                    logger.warning(
+                        f"House ID conflict on attempt {attempt + 1}, retrying..."
+                    )
+                    continue
+                else:
+                    logger.error(
+                        f"Failed to create house after {max_retries} attempts: {str(e)}"
+                    )
+                    return Response(
+                        {
+                            "error": "Uyni yaratishda xatolik yuz berdi.",
+                            "error_en": "Error creating house after multiple attempts.",
+                            "detail": str(e),
+                        },
+                        status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                    )
+
+            except Exception as e:
+                logger.error(f"Unexpected error during agent claim: {str(e)}")
+                return Response(
+                    {
+                        "error": "Kutilmagan xatolik yuz berdi.",
+                        "error_en": "Unexpected error occurred.",
+                        "detail": str(e),
+                    },
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                )
+
+        # This should never be reached due to the return in the except block
+        return Response(
+            {
+                "error": "Uyni yaratishda xatolik yuz berdi.",
+                "error_en": "Error creating house.",
+            },
+            status=status.HTTP_500_INTERNAL_SERVER_ERROR,
+        )

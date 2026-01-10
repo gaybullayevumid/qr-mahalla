@@ -93,3 +93,35 @@ class QRCodeClaimSerializer(serializers.Serializer):
     address = serializers.CharField(max_length=255)
     house_number = serializers.CharField(max_length=50)
     mahalla = serializers.IntegerField()
+
+
+class AgentCreateUserSerializer(serializers.Serializer):
+    """
+    Serializer for agent to create a new user and claim house.
+
+    Used when agent scans QR code and wants to register a new user with their house.
+    Agent fills in user data on behalf of the user.
+    """
+
+    phone = serializers.CharField(max_length=15, required=True)
+    first_name = serializers.CharField(max_length=100, required=True)
+    last_name = serializers.CharField(max_length=100, required=True)
+    address = serializers.CharField(max_length=255, required=True)
+    house_number = serializers.CharField(max_length=50, required=False, allow_blank=True, default="")
+    mahalla = serializers.IntegerField(required=True)
+
+    def validate_phone(self, value):
+        """Validate phone number format and uniqueness."""
+        import re
+        from apps.users.models import User
+
+        # Remove all non-digit characters
+        phone = re.sub(r'\D', '', value)
+        
+        # Check if phone number already exists
+        if User.objects.filter(phone=phone).exists():
+            raise serializers.ValidationError(
+                "Bu telefon raqami allaqachon ro'yxatdan o'tgan. / This phone number is already registered."
+            )
+        
+        return phone

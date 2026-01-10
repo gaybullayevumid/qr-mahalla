@@ -9,6 +9,7 @@ from .views import (
     BulkQRCodeGenerateView,
     QRCodeBulkListView,
     BulkQRCodeDownloadView,
+    AgentClaimHouseView,
 )
 
 urlpatterns = [
@@ -25,4 +26,7 @@ urlpatterns = [
     path("<str:uuid>/", QRCodeDetailAPIView.as_view(), name="qr-detail"),
     path("scan/<str:uuid>/", ScanQRCodeView.as_view(), name="qr-scan"),
     path("claim/<str:uuid>/", ClaimHouseView.as_view(), name="qr-claim"),
+    path(
+        "agent-claim/<str:uuid>/", AgentClaimHouseView.as_view(), name="qr-agent-claim"
+    ),
 ]
